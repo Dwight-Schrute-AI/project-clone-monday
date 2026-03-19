@@ -8,12 +8,15 @@ import { BoardSelector } from "./components/BoardSelector/BoardSelector";
 import { Grid } from "./components/Grid/Grid";
 import { Gantt } from "./components/Gantt/Gantt";
 import { SplitPane } from "./components/SplitPane/SplitPane";
+import { LoadingOverlay } from "./components/common/LoadingOverlay";
 import { useScrollSync } from "./hooks/useScrollSync";
 import { useMondaySync } from "./hooks/useMondaySync";
+import { useUndoStack } from "./hooks/useUndoStack";
 import styles from "./App.module.css";
 
 function App(): React.JSX.Element {
-  const [state, dispatch] = useReducer(appReducer, initialState);
+  const [state, rawDispatch] = useReducer(appReducer, initialState);
+  const dispatch = useUndoStack(rawDispatch);
   const gridScrollRef = useRef<HTMLDivElement>(null);
   const ganttScrollRef = useRef<HTMLDivElement>(null);
 
@@ -39,6 +42,10 @@ function App(): React.JSX.Element {
 
     if (!state.activeBoardId) {
       return <BoardSelector />;
+    }
+
+    if (state.tasks.length === 0) {
+      return <LoadingOverlay message="Loading board data\u2026" />;
     }
 
     return (

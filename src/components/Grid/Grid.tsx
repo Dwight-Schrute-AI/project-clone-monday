@@ -2,10 +2,12 @@
 
 import { useState, useMemo, useRef, useCallback } from "react";
 import { useAppContext } from "../../state/AppContext";
-import { taskFieldUpdated } from "../../state/actions";
+import { taskFieldUpdated, taskDeleted } from "../../state/actions";
 import { selectVisibleTasks, selectDisplayIds } from "../../state/selectors";
 import { ColumnHeader } from "./ColumnHeader";
 import { GridRow } from "./GridRow";
+import { ContextMenu } from "../ContextMenu/ContextMenu";
+import { DetailDialog } from "../DetailDialog/DetailDialog";
 import styles from "./Grid.module.css";
 
 interface GridProps {
@@ -33,6 +35,12 @@ export function Grid({ scrollContainerRef }: GridProps): React.JSX.Element {
   const [columnWidths, setColumnWidths] = useState<Map<string, number>>(
     () => new Map(),
   );
+  const [contextMenu, setContextMenu] = useState<{
+    x: number;
+    y: number;
+    taskId: string;
+  } | null>(null);
+  const [detailTaskId, setDetailTaskId] = useState<string | null>(null);
 
   const handleSelectRow = useCallback(function handleSelectRow(taskId: string): void {
     setSelectedTaskId(taskId);
@@ -58,6 +66,30 @@ export function Grid({ scrollContainerRef }: GridProps): React.JSX.Element {
   const handleCancelEdit = useCallback(function handleCancelEdit(): void {
     setEditingCell(null);
   }, []);
+
+  const handleContextMenu = useCallback(function handleContextMenu(
+    taskId: string,
+    x: number,
+    y: number,
+  ): void {
+    setContextMenu({ x, y, taskId });
+  }, []);
+
+  function handleCloseContextMenu(): void {
+    setContextMenu(null);
+  }
+
+  function handleOpenDetails(taskId: string): void {
+    setDetailTaskId(taskId);
+  }
+
+  function handleDeleteTask(taskId: string): void {
+    dispatch(taskDeleted(taskId));
+  }
+
+  function handleCloseDetail(): void {
+    setDetailTaskId(null);
+  }
 
   const handleColumnResize = useCallback(function handleColumnResize(
     columnKey: string,
@@ -113,10 +145,26 @@ export function Grid({ scrollContainerRef }: GridProps): React.JSX.Element {
               onStartEdit={handleStartEdit}
               onCommitEdit={handleCommitEdit}
               onCancelEdit={handleCancelEdit}
+              onContextMenu={handleContextMenu}
             />
           ))}
         </div>
       </div>
+
+      {contextMenu && (
+        <ContextMenu
+          x={contextMenu.x}
+          y={contextMenu.y}
+          taskId={contextMenu.taskId}
+          onClose={handleCloseContextMenu}
+          onOpenDetails={handleOpenDetails}
+          onDeleteTask={handleDeleteTask}
+        />
+      )}
+
+      {detailTaskId && (
+        <DetailDialog taskId={detailTaskId} onClose={handleCloseDetail} />
+      )}
     </div>
   );
 }

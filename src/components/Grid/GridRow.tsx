@@ -15,6 +15,7 @@ interface GridRowProps {
   onStartEdit: (taskId: string, columnKey: string) => void;
   onCommitEdit: (taskId: string, fieldKey: string, value: unknown, previousValue: unknown) => void;
   onCancelEdit: () => void;
+  onContextMenu: (taskId: string, x: number, y: number) => void;
 }
 
 export function GridRow({
@@ -28,9 +29,16 @@ export function GridRow({
   onStartEdit,
   onCommitEdit,
   onCancelEdit,
+  onContextMenu,
 }: GridRowProps): React.JSX.Element {
   function handleClick(): void {
     onSelect(task.id);
+  }
+
+  function handleContextMenu(e: React.MouseEvent): void {
+    if (task.isGroupRow) return;
+    e.preventDefault();
+    onContextMenu(task.id, e.clientX, e.clientY);
   }
 
   if (task.isGroupRow) {
@@ -64,7 +72,7 @@ export function GridRow({
   }
 
   return (
-    <div className={rowClass} onClick={handleClick}>
+    <div className={rowClass} onClick={handleClick} onContextMenu={handleContextMenu}>
       {columns.map((col) => {
         const w = columnWidths.get(col.key) ?? col.width;
         return (

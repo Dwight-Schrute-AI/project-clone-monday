@@ -5,6 +5,7 @@ import type { ReactNode } from "react";
 import { useAppContext } from "../../state/AppContext";
 import { themeToggled } from "../../state/actions";
 import { StatusBar } from "../common/StatusBar";
+import { LogDrawer } from "../common/LogDrawer";
 import { SettingsDialog } from "../Settings/SettingsDialog";
 import styles from "./Shell.module.css";
 
@@ -15,6 +16,7 @@ interface ShellProps {
 export function Shell({ children }: ShellProps): React.JSX.Element {
   const { state, dispatch } = useAppContext();
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [logOpen, setLogOpen] = useState(false);
 
   function handleToggleTheme(): void {
     dispatch(themeToggled());
@@ -29,6 +31,16 @@ export function Shell({ children }: ShellProps): React.JSX.Element {
   }
 
   const taskCount = state.tasks.filter((t) => !t.isGroupRow).length;
+  const pendingCount = state.pendingWrites.size;
+  const errorCount = state.log.filter((e) => e.level === "error").length;
+
+  function handleToggleLog(): void {
+    setLogOpen((v) => !v);
+  }
+
+  function handleCloseLog(): void {
+    setLogOpen(false);
+  }
 
   return (
     <div className={styles.shell}>
@@ -58,10 +70,15 @@ export function Shell({ children }: ShellProps): React.JSX.Element {
 
       <main className={styles.content}>{children}</main>
 
+      <LogDrawer entries={state.log} open={logOpen} onClose={handleCloseLog} />
+
       <StatusBar
         connectionStatus={state.connection.status}
         userName={state.connection.userName}
         taskCount={taskCount}
+        pendingCount={pendingCount}
+        errorCount={errorCount}
+        onToggleLog={handleToggleLog}
       />
 
       <SettingsDialog open={settingsOpen} onClose={handleCloseSettings} />

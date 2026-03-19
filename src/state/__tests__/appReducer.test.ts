@@ -96,6 +96,7 @@ describe("BOARD_DATA_LOADED", () => {
         mondayColId: null,
         mondayColType: null,
         options: null,
+        subitemOptions: null,
         fixed: true,
       },
     ];

@@ -6,6 +6,7 @@ import { AppContext } from "./state/AppContext";
 import { Shell } from "./components/Shell/Shell";
 import { BoardSelector } from "./components/BoardSelector/BoardSelector";
 import { Grid } from "./components/Grid/Grid";
+import { Gantt } from "./components/Gantt/Gantt";
 import styles from "./App.module.css";
 
 function App(): React.JSX.Element {
@@ -32,7 +33,12 @@ function App(): React.JSX.Element {
       return <BoardSelector />;
     }
 
-    return <Grid />;
+    return (
+      <div className={styles.splitView}>
+        <div className={styles.splitLeft}><Grid /></div>
+        <div className={styles.splitRight}><Gantt /></div>
+      </div>
+    );
   }
 
   return (

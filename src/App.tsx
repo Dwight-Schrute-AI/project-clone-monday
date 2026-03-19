@@ -5,6 +5,7 @@ import { appReducer, initialState } from "./state/appReducer";
 import { AppContext } from "./state/AppContext";
 import { Shell } from "./components/Shell/Shell";
 import { BoardSelector } from "./components/BoardSelector/BoardSelector";
+import { Grid } from "./components/Grid/Grid";
 import styles from "./App.module.css";
 
 function App(): React.JSX.Element {
@@ -31,18 +32,7 @@ function App(): React.JSX.Element {
       return <BoardSelector />;
     }
 
-    return (
-      <div className={styles.boardLoaded}>
-        <h2 className={styles.boardLoadedTitle}>Board Loaded</h2>
-        <p className={styles.boardLoadedText}>
-          {String(state.tasks.filter((t) => !t.isGroupRow).length)} tasks,{" "}
-          {String(state.columns.length)} columns
-        </p>
-        <p className={styles.boardLoadedHint}>
-          Grid and Gantt views coming in next steps.
-        </p>
-      </div>
-    );
+    return <Grid />;
   }
 
   return (

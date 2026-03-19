@@ -15,6 +15,7 @@ import {
   NEXT_ITEMS_PAGE_QUERY,
   FETCH_USERS_QUERY,
   UPDATE_ITEM_MUTATION,
+  CHANGE_ITEM_NAME_MUTATION,
   CREATE_ITEM_MUTATION,
   DELETE_ITEM_MUTATION,
 } from "./mondayQueries";
@@ -200,6 +201,21 @@ export async function updateItem(
   });
 
   logger.info(`Updated item ${itemId} on board ${boardId}`);
+}
+
+export async function updateItemName(
+  token: string,
+  boardId: string,
+  itemId: string,
+  name: string
+): Promise<void> {
+  await mondayFetch(token, CHANGE_ITEM_NAME_MUTATION, {
+    boardId,
+    itemId,
+    value: name,
+  });
+
+  logger.info(`Updated item name for ${itemId} on board ${boardId}`);
 }
 
 export async function createItem(

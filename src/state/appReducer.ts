@@ -164,6 +164,7 @@ export function appReducer(state: AppState, action: AppAction): AppState {
         tasks: action.tasks,
         columns: action.columns,
         activeBoardId: action.boardId,
+        pendingWrites: new Map(),
       };
 
     case "USERS_LOADED":

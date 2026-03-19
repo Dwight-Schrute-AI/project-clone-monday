@@ -115,6 +115,19 @@ export const CREATE_ITEM_MUTATION = `
   }
 `;
 
+export const CHANGE_ITEM_NAME_MUTATION = `
+  mutation ($boardId: ID!, $itemId: ID!, $value: String!) {
+    change_simple_column_value(
+      board_id: $boardId
+      item_id: $itemId
+      column_id: "name"
+      value: $value
+    ) {
+      id
+    }
+  }
+`;
+
 export const DELETE_ITEM_MUTATION = `
   mutation ($itemId: ID!) {
     delete_item(item_id: $itemId) {

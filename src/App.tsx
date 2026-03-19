@@ -9,6 +9,7 @@ import { Grid } from "./components/Grid/Grid";
 import { Gantt } from "./components/Gantt/Gantt";
 import { SplitPane } from "./components/SplitPane/SplitPane";
 import { useScrollSync } from "./hooks/useScrollSync";
+import { useMondaySync } from "./hooks/useMondaySync";
 import styles from "./App.module.css";
 
 function App(): React.JSX.Element {
@@ -17,6 +18,7 @@ function App(): React.JSX.Element {
   const ganttScrollRef = useRef<HTMLDivElement>(null);
 
   useScrollSync(gridScrollRef, ganttScrollRef);
+  useMondaySync();
 
   useEffect(() => {
     document.documentElement.dataset["theme"] = state.theme;

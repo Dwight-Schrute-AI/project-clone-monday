@@ -55,6 +55,7 @@ export interface MondayItemsPage {
 export interface MondayItem {
   id: string;
   name: string;
+  board?: { id: string };
   group: { id: string };
   column_values: MondayRawColumnValue[];
   subitems: MondayItem[];

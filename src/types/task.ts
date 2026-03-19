@@ -3,6 +3,7 @@
 export interface Task {
   id: string;
   mondayId: string;
+  mondayBoardId: string;
   name: string;
   start: string | null;
   end: string | null;

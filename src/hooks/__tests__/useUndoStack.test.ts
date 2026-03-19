@@ -1,11 +1,12 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import type { Mock } from "vitest";
 import { renderHook, act } from "@testing-library/react";
 import { useUndoStack } from "../useUndoStack";
 import type { AppAction } from "../../types";
 
 describe("useUndoStack", () => {
-  let mockDispatch: ReturnType<typeof vi.fn>;
+  let mockDispatch: Mock<(action: AppAction) => void>;
 
   beforeEach(() => {
     mockDispatch = vi.fn();

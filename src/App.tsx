@@ -2,7 +2,7 @@
 
 import { useReducer, useEffect, useRef } from "react";
 import { appReducer, initialState } from "./state/appReducer";
-import { AppContext } from "./state/AppContext";
+import { AppContext, useAppContext } from "./state/AppContext";
 import { Shell } from "./components/Shell/Shell";
 import { BoardSelector } from "./components/BoardSelector/BoardSelector";
 import { Grid } from "./components/Grid/Grid";
@@ -14,9 +14,12 @@ import { useMondaySync } from "./hooks/useMondaySync";
 import { useUndoStack } from "./hooks/useUndoStack";
 import styles from "./App.module.css";
 
-function App(): React.JSX.Element {
-  const [state, rawDispatch] = useReducer(appReducer, initialState);
-  const dispatch = useUndoStack(rawDispatch);
+/**
+ * Inner component that lives inside AppContext.Provider,
+ * so hooks like useMondaySync can access context safely.
+ */
+function AppInner(): React.JSX.Element {
+  const { state } = useAppContext();
   const gridScrollRef = useRef<HTMLDivElement>(null);
   const ganttScrollRef = useRef<HTMLDivElement>(null);
 
@@ -45,7 +48,7 @@ function App(): React.JSX.Element {
     }
 
     if (state.tasks.length === 0) {
-      return <LoadingOverlay message="Loading board data\u2026" />;
+      return <LoadingOverlay message="Loading board data&#x2026;" />;
     }
 
     return (
@@ -56,9 +59,16 @@ function App(): React.JSX.Element {
     );
   }
 
+  return <Shell>{renderContent()}</Shell>;
+}
+
+function App(): React.JSX.Element {
+  const [state, rawDispatch] = useReducer(appReducer, initialState);
+  const dispatch = useUndoStack(rawDispatch);
+
   return (
     <AppContext.Provider value={{ state, dispatch }}>
-      <Shell>{renderContent()}</Shell>
+      <AppInner />
     </AppContext.Provider>
   );
 }

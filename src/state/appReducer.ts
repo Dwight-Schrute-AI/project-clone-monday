@@ -2,6 +2,7 @@
 
 import type { AppState, AppAction, LogEntry } from "../types";
 import type { Task } from "../types";
+import { cascadeDependencies } from "../utils/dependencyGraph";
 
 /** Top-level Task fields that can be updated directly via TASK_FIELD_UPDATED */
 const TOP_LEVEL_TASK_FIELDS: ReadonlySet<string> = new Set([
@@ -50,7 +51,7 @@ function handleTaskFieldUpdated(
     };
   }
 
-  const updatedTasks = state.tasks.map((t) =>
+  let updatedTasks = state.tasks.map((t) =>
     t.id === taskId ? updatedTask : t,
   );
 
@@ -62,6 +63,38 @@ function handleTaskFieldUpdated(
     previousValue,
     timestamp: Date.now(),
   });
+
+  // Cascade date changes to downstream dependencies (Finish-to-Start)
+  if (fieldKey === "start" || fieldKey === "end") {
+    const cascadeUpdates = cascadeDependencies(updatedTasks, taskId, fieldKey);
+    if (cascadeUpdates.length > 0) {
+      const cascadeMap = new Map(
+        cascadeUpdates.map((u) => [u.taskId, u]),
+      );
+      updatedTasks = updatedTasks.map((t) => {
+        const cu = cascadeMap.get(t.id);
+        if (!cu) return t;
+        return { ...t, start: cu.start, end: cu.end };
+      });
+
+      // Add pendingWrites for each cascaded task so useMondaySync writes them back
+      const now = Date.now();
+      for (const cu of cascadeUpdates) {
+        updatedPendingWrites.set(`${cu.taskId}:start`, {
+          fieldKey: "start",
+          value: cu.start,
+          previousValue: cu.previousStart,
+          timestamp: now,
+        });
+        updatedPendingWrites.set(`${cu.taskId}:end`, {
+          fieldKey: "end",
+          value: cu.end,
+          previousValue: cu.previousEnd,
+          timestamp: now,
+        });
+      }
+    }
+  }
 
   return { ...state, tasks: updatedTasks, pendingWrites: updatedPendingWrites };
 }

@@ -303,6 +303,92 @@ describe("LOG_ADDED", () => {
   });
 });
 
+describe("TASK_FIELD_UPDATED cascade", () => {
+  it("cascades end date change to downstream tasks and creates pendingWrites", () => {
+    const tasks = [
+      makeTask({ id: "A", start: "2026-03-01", end: "2026-03-10" }),
+      makeTask({ id: "B", start: "2026-03-05", end: "2026-03-09", predecessors: ["A"] }),
+    ];
+    const state = stateWith({ tasks });
+
+    const next = appReducer(state, {
+      type: "TASK_FIELD_UPDATED",
+      taskId: "A",
+      fieldKey: "end",
+      value: "2026-03-10",
+      previousValue: "2026-03-08",
+    });
+
+    // B should be shifted: start 03-11, duration 4 → end 03-15
+    const taskB = next.tasks.find((t) => t.id === "B");
+    expect(taskB?.start).toBe("2026-03-11");
+    expect(taskB?.end).toBe("2026-03-15");
+
+    // pendingWrites should include entries for cascaded B's start and end
+    expect(next.pendingWrites.has("B:start")).toBe(true);
+    expect(next.pendingWrites.has("B:end")).toBe(true);
+    expect(next.pendingWrites.get("B:start")?.previousValue).toBe("2026-03-05");
+    expect(next.pendingWrites.get("B:end")?.previousValue).toBe("2026-03-09");
+  });
+
+  it("does not cascade for non-date field changes", () => {
+    const tasks = [
+      makeTask({ id: "A", start: "2026-03-01", end: "2026-03-10" }),
+      makeTask({ id: "B", start: "2026-03-05", end: "2026-03-09", predecessors: ["A"] }),
+    ];
+    const state = stateWith({ tasks });
+
+    const next = appReducer(state, {
+      type: "TASK_FIELD_UPDATED",
+      taskId: "A",
+      fieldKey: "name",
+      value: "Renamed",
+      previousValue: "Task",
+    });
+
+    // B should not change
+    const taskB = next.tasks.find((t) => t.id === "B");
+    expect(taskB?.start).toBe("2026-03-05");
+    expect(taskB?.end).toBe("2026-03-09");
+
+    // No cascade pendingWrites
+    expect(next.pendingWrites.has("B:start")).toBe(false);
+    expect(next.pendingWrites.has("B:end")).toBe(false);
+  });
+
+  it("cascades through a chain: A → B → C", () => {
+    const tasks = [
+      makeTask({ id: "A", start: "2026-03-01", end: "2026-03-10" }),
+      makeTask({ id: "B", start: "2026-03-05", end: "2026-03-09", predecessors: ["A"] }),
+      makeTask({ id: "C", start: "2026-03-08", end: "2026-03-12", predecessors: ["B"] }),
+    ];
+    const state = stateWith({ tasks });
+
+    const next = appReducer(state, {
+      type: "TASK_FIELD_UPDATED",
+      taskId: "A",
+      fieldKey: "end",
+      value: "2026-03-10",
+      previousValue: "2026-03-04",
+    });
+
+    const taskB = next.tasks.find((t) => t.id === "B");
+    const taskC = next.tasks.find((t) => t.id === "C");
+
+    // B: start 03-11, duration 4 → end 03-15
+    expect(taskB?.start).toBe("2026-03-11");
+    expect(taskB?.end).toBe("2026-03-15");
+
+    // C: B ends 03-15 → C starts 03-16, duration 4 → end 03-20
+    expect(taskC?.start).toBe("2026-03-16");
+    expect(taskC?.end).toBe("2026-03-20");
+
+    // All cascade writes tracked
+    expect(next.pendingWrites.has("B:start")).toBe(true);
+    expect(next.pendingWrites.has("C:end")).toBe(true);
+  });
+});
+
 describe("immutability", () => {
   it("returns a new state reference for mutating actions", () => {
     const state = stateWith({ tasks: [makeTask()] });

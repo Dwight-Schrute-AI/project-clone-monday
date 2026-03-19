@@ -20,7 +20,11 @@ interface GroupRange {
   pct: number;
 }
 
-export function Gantt(): React.JSX.Element {
+interface GanttProps {
+  scrollContainerRef?: React.RefObject<HTMLDivElement | null>;
+}
+
+export function Gantt({ scrollContainerRef }: GanttProps): React.JSX.Element {
   const { state } = useAppContext();
   const barAreaRef = useRef<HTMLDivElement>(null);
 
@@ -79,7 +83,7 @@ export function Gantt(): React.JSX.Element {
         dayWidth={DAY_WIDTH}
       />
 
-      <div className={styles.barArea} ref={barAreaRef}>
+      <div className={styles.barArea} ref={scrollContainerRef ?? barAreaRef}>
         <div
           className={styles.barAreaInner}
           style={{ width: totalWidth, height: Math.max(totalHeight, 1) }}

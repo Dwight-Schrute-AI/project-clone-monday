@@ -25,19 +25,4 @@
   line-height: 1.5;
 }
 
-.splitView {
-  display: flex;
-  height: 100%;
-}
-
-.splitLeft {
-  flex: 0 0 50%;
-  overflow: hidden;
-  border-right: 1px solid var(--border);
-}
-
-.splitRight {
-  flex: 0 0 50%;
-  overflow: hidden;
-}
 

@@ -1,16 +1,22 @@
 /** @module App shell — auth, board selection, data loading */
 
-import { useReducer, useEffect } from "react";
+import { useReducer, useEffect, useRef } from "react";
 import { appReducer, initialState } from "./state/appReducer";
 import { AppContext } from "./state/AppContext";
 import { Shell } from "./components/Shell/Shell";
 import { BoardSelector } from "./components/BoardSelector/BoardSelector";
 import { Grid } from "./components/Grid/Grid";
 import { Gantt } from "./components/Gantt/Gantt";
+import { SplitPane } from "./components/SplitPane/SplitPane";
+import { useScrollSync } from "./hooks/useScrollSync";
 import styles from "./App.module.css";
 
 function App(): React.JSX.Element {
   const [state, dispatch] = useReducer(appReducer, initialState);
+  const gridScrollRef = useRef<HTMLDivElement>(null);
+  const ganttScrollRef = useRef<HTMLDivElement>(null);
+
+  useScrollSync(gridScrollRef, ganttScrollRef);
 
   useEffect(() => {
     document.documentElement.dataset["theme"] = state.theme;
@@ -34,10 +40,10 @@ function App(): React.JSX.Element {
     }
 
     return (
-      <div className={styles.splitView}>
-        <div className={styles.splitLeft}><Grid /></div>
-        <div className={styles.splitRight}><Gantt /></div>
-      </div>
+      <SplitPane
+        left={<Grid scrollContainerRef={gridScrollRef} />}
+        right={<Gantt scrollContainerRef={ganttScrollRef} />}
+      />
     );
   }
 

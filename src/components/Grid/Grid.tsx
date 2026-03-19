@@ -8,7 +8,11 @@ import { ColumnHeader } from "./ColumnHeader";
 import { GridRow } from "./GridRow";
 import styles from "./Grid.module.css";
 
-export function Grid(): React.JSX.Element {
+interface GridProps {
+  scrollContainerRef?: React.RefObject<HTMLDivElement | null>;
+}
+
+export function Grid({ scrollContainerRef }: GridProps): React.JSX.Element {
   const { state, dispatch } = useAppContext();
   const bodyRef = useRef<HTMLDivElement>(null);
 
@@ -90,7 +94,7 @@ export function Grid(): React.JSX.Element {
         ))}
       </div>
 
-      <div className={styles.body} ref={bodyRef}>
+      <div className={styles.body} ref={scrollContainerRef ?? bodyRef}>
         <div className={styles.bodyInner}>
           {visibleTasks.map((task) => (
             <GridRow

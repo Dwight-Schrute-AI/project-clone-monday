@@ -1,0 +1,39 @@
+/** @module GridRow styles */
+
+.row {
+  display: flex;
+  height: 36px;
+  border-bottom: 1px solid var(--border);
+  cursor: default;
+  min-width: max-content;
+}
+
+.row:hover {
+  background: var(--row-hover);
+}
+
+.rowSelected {
+  background: var(--row-selected);
+}
+
+.rowSelected:hover {
+  background: var(--row-selected);
+}
+
+.groupRow {
+  display: flex;
+  align-items: center;
+  height: 40px;
+  border-bottom: 1px solid var(--border);
+  font-weight: 600;
+  font-size: 14px;
+  cursor: default;
+  min-width: max-content;
+}
+
+.groupLabel {
+  padding: 0 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}

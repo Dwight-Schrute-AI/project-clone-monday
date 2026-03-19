@@ -1,0 +1,25 @@
+/** @module Grid layout styles */
+
+.grid {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+
+.headerRow {
+  display: flex;
+  flex-shrink: 0;
+  background: var(--bg-surface);
+  border-bottom: 2px solid var(--border);
+  overflow: hidden;
+}
+
+.body {
+  flex: 1;
+  overflow: auto;
+}
+
+.bodyInner {
+  min-width: max-content;
+}

@@ -1,0 +1,39 @@
+/** @module Design tokens — CSS custom properties for light and dark themes */
+
+:root {
+  --bg-primary: #ffffff;
+  --bg-surface: #f8f9fa;
+  --bg-elevated: #ffffff;
+  --text-primary: #1a1a2e;
+  --text-secondary: #6b7280;
+  --border: #e5e7eb;
+  --accent: #0073ea;
+  --accent-hover: #0060c0;
+  --gantt-bar: #0073ea;
+  --gantt-bar-progress: #00c875;
+  --gantt-milestone: #fdab3d;
+  --gantt-summary: #6b7280;
+  --gantt-weekend: rgba(0, 0, 0, 0.03);
+  --gantt-today: #e44258;
+  --row-hover: rgba(0, 115, 234, 0.04);
+  --row-selected: rgba(0, 115, 234, 0.08);
+}
+
+[data-theme="dark"] {
+  --bg-primary: #1a1a2e;
+  --bg-surface: #16213e;
+  --bg-elevated: #1f2b4d;
+  --text-primary: #e0e0e0;
+  --text-secondary: #9ca3af;
+  --border: #2d3a5c;
+  --accent: #589bff;
+  --accent-hover: #79b0ff;
+  --gantt-bar: #589bff;
+  --gantt-bar-progress: #00d68f;
+  --gantt-milestone: #fdab3d;
+  --gantt-summary: #9ca3af;
+  --gantt-weekend: rgba(255, 255, 255, 0.03);
+  --gantt-today: #e44258;
+  --row-hover: rgba(88, 155, 255, 0.06);
+  --row-selected: rgba(88, 155, 255, 0.1);
+}

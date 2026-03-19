@@ -1,0 +1,43 @@
+/** @module ColumnHeader styles */
+
+.header {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  padding: 0 8px;
+  height: 32px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  border-right: 1px solid var(--border);
+  position: relative;
+  user-select: none;
+  box-sizing: border-box;
+}
+
+.headerFixed {
+  position: sticky;
+  z-index: 12;
+  background: var(--bg-surface);
+}
+
+.label {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex: 1;
+}
+
+.resizeHandle {
+  position: absolute;
+  right: 0;
+  top: 0;
+  width: 5px;
+  height: 100%;
+  cursor: col-resize;
+}
+
+.resizeHandle:hover {
+  background: var(--accent);
+  opacity: 0.4;
+}

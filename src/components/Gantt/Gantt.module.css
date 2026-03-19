@@ -1,0 +1,146 @@
+/** @module Gantt chart styles */
+
+.gantt {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+
+/* --- Time Header --- */
+
+.timeHeader {
+  flex-shrink: 0;
+  border-bottom: 2px solid var(--border);
+  background: var(--bg-surface);
+  overflow: hidden;
+}
+
+.monthRow {
+  display: flex;
+  height: 18px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  border-bottom: 1px solid var(--border);
+}
+
+.monthCell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  white-space: nowrap;
+  border-right: 1px solid var(--border);
+}
+
+.dayRow {
+  display: flex;
+  height: 18px;
+  font-size: 10px;
+  color: var(--text-secondary);
+}
+
+.dayCell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  border-right: 1px solid var(--border);
+}
+
+.dayCellWeekend {
+  background: var(--gantt-weekend);
+}
+
+/* --- Bar Area --- */
+
+.barArea {
+  flex: 1;
+  overflow: auto;
+}
+
+.barAreaInner {
+  position: relative;
+}
+
+.weekendStripe {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  background: var(--gantt-weekend);
+  pointer-events: none;
+}
+
+.todayLine {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: var(--gantt-today);
+  z-index: 3;
+  pointer-events: none;
+}
+
+/* --- Bars --- */
+
+.bar {
+  position: absolute;
+  border-radius: 3px;
+  background: var(--gantt-bar);
+  overflow: hidden;
+  cursor: default;
+}
+
+.barFill {
+  height: 100%;
+  background: var(--gantt-bar-progress);
+  border-radius: 3px 0 0 3px;
+}
+
+.barLabel {
+  position: absolute;
+  top: 0;
+  left: 6px;
+  right: 4px;
+  line-height: inherit;
+  font-size: 11px;
+  color: #fff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  pointer-events: none;
+}
+
+.milestone {
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  background: var(--gantt-milestone);
+  transform: rotate(45deg);
+  cursor: default;
+}
+
+.summaryBar {
+  position: absolute;
+  height: 8px;
+  background: var(--gantt-summary);
+  border-radius: 2px;
+  cursor: default;
+}
+
+.summaryBarFill {
+  height: 100%;
+  background: var(--gantt-bar-progress);
+  border-radius: 2px 0 0 2px;
+}
+
+/* --- Arrows --- */
+
+.arrowsSvg {
+  position: absolute;
+  top: 0;
+  left: 0;
+  pointer-events: none;
+  overflow: visible;
+}

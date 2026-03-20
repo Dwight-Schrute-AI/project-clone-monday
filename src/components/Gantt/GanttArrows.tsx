@@ -4,6 +4,7 @@ import { useMemo } from "react";
 import type { Task } from "../../types";
 import type { RowGeometry } from "../../state/selectors";
 import { diffDays } from "../../utils/dateUtils";
+import styles from "./Gantt.module.css";
 
 interface GanttArrowsProps {
   tasks: Task[];
@@ -84,9 +85,9 @@ export function GanttArrows({
 
   return (
     <svg
+      className={styles.arrowsSvg}
       width={totalWidth}
       height={totalHeight}
-      style={{ position: "absolute", top: 0, left: 0, pointerEvents: "none" }}
     >
       {arrows.map((arrow) => (
         <g key={arrow.key}>

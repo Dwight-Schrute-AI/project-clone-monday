@@ -10,7 +10,6 @@
 .headerRow {
   display: flex;
   flex-shrink: 0;
-  min-width: max-content;
   background: var(--bg-surface);
   border-bottom: 2px solid var(--border);
   overflow: hidden;

@@ -2,6 +2,8 @@
 
 import styles from "./StatusBar.module.css";
 
+const APP_VERSION = "2026.03.20.13.50";
+
 interface StatusBarProps {
   connectionStatus: "disconnected" | "connecting" | "connected" | "error";
   userName: string | null;
@@ -46,6 +48,7 @@ export function StatusBar({
         )}
       </div>
       <div className={styles.right}>
+        <span className={styles.version}>v{APP_VERSION}</span>
         {taskCount > 0 && (
           <span>
             {String(taskCount)} task{taskCount !== 1 ? "s" : ""}

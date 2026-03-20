@@ -13,6 +13,7 @@ export interface Column {
   mondayColId: string | null;
   mondayColType: MondayColumnType | null;
   options: ColumnOption[] | null;
+  subitemOptions: ColumnOption[] | null;
   fixed: boolean;
 }
 

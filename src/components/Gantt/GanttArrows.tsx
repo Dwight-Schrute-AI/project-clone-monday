@@ -59,7 +59,7 @@ export function GanttArrows({
         const succStart = succTask.start ?? succTask.end;
         if (!succStart) continue;
 
-        const startX = diffDays(timelineStart, predEnd) * dayWidth;
+        const startX = diffDays(timelineStart, predEnd) * dayWidth + dayWidth;
         const startY = predGeo.y + predGeo.height / 2;
         const endX = diffDays(timelineStart, succStart) * dayWidth;
         const endY = succGeo.y + succGeo.height / 2;

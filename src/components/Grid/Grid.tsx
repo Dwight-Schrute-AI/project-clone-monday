@@ -1,6 +1,6 @@
 /** @module Grid — container: header row, scrollable body */
 
-import { useState, useMemo, useRef, useCallback } from "react";
+import { useState, useMemo, useRef, useCallback, useEffect } from "react";
 import { useAppContext } from "../../state/AppContext";
 import { taskFieldUpdated, taskDeleted } from "../../state/actions";
 import { selectVisibleTasks, selectDisplayIds } from "../../state/selectors";
@@ -17,6 +17,7 @@ interface GridProps {
 export function Grid({ scrollContainerRef }: GridProps): React.JSX.Element {
   const { state, dispatch } = useAppContext();
   const bodyRef = useRef<HTMLDivElement>(null);
+  const headerRef = useRef<HTMLDivElement>(null);
 
   const visibleTasks = useMemo(
     () => selectVisibleTasks(state),
@@ -41,6 +42,21 @@ export function Grid({ scrollContainerRef }: GridProps): React.JSX.Element {
     taskId: string;
   } | null>(null);
   const [detailTaskId, setDetailTaskId] = useState<string | null>(null);
+
+  // Sync header scrollLeft to body scrollLeft on horizontal scroll
+  useEffect(() => {
+    const body = scrollContainerRef?.current ?? bodyRef.current;
+    if (!body) return;
+
+    function handleScroll(): void {
+      if (headerRef.current && body) {
+        headerRef.current.scrollLeft = body.scrollLeft;
+      }
+    }
+
+    body.addEventListener("scroll", handleScroll);
+    return () => { body.removeEventListener("scroll", handleScroll); };
+  }, [scrollContainerRef]);
 
   const handleSelectRow = useCallback(function handleSelectRow(taskId: string): void {
     setSelectedTaskId(taskId);
@@ -114,7 +130,7 @@ export function Grid({ scrollContainerRef }: GridProps): React.JSX.Element {
 
   return (
     <div className={styles.grid}>
-      <div className={styles.headerRow}>
+      <div className={styles.headerRow} ref={headerRef}>
         {state.columns.map((col) => (
           <ColumnHeader
             key={col.key}

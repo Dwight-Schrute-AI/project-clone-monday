@@ -71,7 +71,7 @@ export function GridCell({
       onDoubleClick={handleDoubleClick}
     >
       {editing
-        ? renderEditor(value, column, handleEditorCommit, onCancelEdit)
+        ? renderEditor(value, column, task.isSubitem, handleEditorCommit, onCancelEdit)
         : <span className={styles.cellText}>{displayText}</span>}
     </div>
   );
@@ -80,6 +80,7 @@ export function GridCell({
 function renderEditor(
   value: unknown,
   column: Column,
+  isSubitem: boolean,
   onCommit: (value: unknown) => void,
   onCancel: () => void,
 ): React.JSX.Element {
@@ -91,7 +92,7 @@ function renderEditor(
     case "number":
       return <NumberEditor value={value} column={column} onCommit={onCommit} onCancel={onCancel} />;
     case "status":
-      return <StatusEditor value={value} column={column} onCommit={onCommit} onCancel={onCancel} />;
+      return <StatusEditor value={value} column={column} isSubitem={isSubitem} onCommit={onCommit} onCancel={onCancel} />;
     case "people":
       return <PeopleEditor value={value} column={column} onCommit={onCommit} onCancel={onCancel} />;
     case "dropdown":

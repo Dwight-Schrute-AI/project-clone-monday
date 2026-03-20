@@ -45,8 +45,8 @@ export function Gantt({ scrollContainerRef }: GanttProps): React.JSX.Element {
   }, [rowGeometry]);
 
   const dependencyGraph = useMemo(
-    () => selectDependencyGraph(state.tasks),
-    [state.tasks],
+    () => selectDependencyGraph(visibleTasks),
+    [visibleTasks],
   );
 
   const { start: tStart, end: tEnd } = useMemo(

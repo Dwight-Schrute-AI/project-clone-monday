@@ -7,11 +7,12 @@ import styles from "./StatusEditor.module.css";
 interface StatusEditorProps {
   value: unknown;
   column: Column;
+  isSubitem: boolean;
   onCommit: (value: unknown) => void;
   onCancel: () => void;
 }
 
-export function StatusEditor({ value, column, onCommit, onCancel }: StatusEditorProps): React.JSX.Element {
+export function StatusEditor({ value, column, isSubitem, onCommit, onCancel }: StatusEditorProps): React.JSX.Element {
   const containerRef = useRef<HTMLDivElement>(null);
   const currentLabel = String(value ?? "");
 
@@ -30,7 +31,9 @@ export function StatusEditor({ value, column, onCommit, onCancel }: StatusEditor
     }
   }
 
-  const options = column.options ?? [];
+  const options = (isSubitem && column.subitemOptions
+    ? column.subitemOptions
+    : column.options) ?? [];
 
   return (
     <div

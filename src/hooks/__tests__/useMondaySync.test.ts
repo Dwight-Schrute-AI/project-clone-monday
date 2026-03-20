@@ -63,6 +63,7 @@ function makeColumn(overrides: Partial<Column> = {}): Column {
     mondayColId: "status_col",
     mondayColType: "status",
     options: null,
+    subitemOptions: null,
     fixed: false,
     ...overrides,
   };

@@ -309,6 +309,7 @@ export function mapBoardToTasks(
       mondayColId: null,
       mondayColType: null,
       options: null,
+      subitemOptions: null,
       fixed: true,
     },
     {
@@ -320,6 +321,7 @@ export function mapBoardToTasks(
       mondayColId: null,
       mondayColType: null,
       options: null,
+      subitemOptions: null,
       fixed: true,
     },
   ];
@@ -347,6 +349,7 @@ export function mapBoardToTasks(
       mondayColId: col.id,
       mondayColType: mondayType,
       options,
+      subitemOptions: null,
       fixed: false,
     });
   }
@@ -396,11 +399,55 @@ export function mapBoardToTasks(
     }
   }
 
+  // Collect subitem-specific status options from actual subitem data.
+  // Subitems live on a different board with different column IDs, so
+  // board.columns[].settings_str only covers parent items. We scan
+  // subitem column_values to discover their unique status labels.
+  collectSubitemStatusOptions(board, appColumns);
+
   logger.info(
     `Mapped board: ${String(tasks.length)} tasks, ${String(appColumns.length)} columns`
   );
 
   return { tasks, columns: appColumns };
+}
+
+/**
+ * Scans subitem column_values to discover status labels not available
+ * in the parent board's column settings. Populates `subitemOptions`
+ * on any status-type column where subitem labels differ from parent.
+ */
+function collectSubitemStatusOptions(
+  board: MondayBoard,
+  appColumns: Column[],
+): void {
+  const statusColumns = appColumns.filter((c) => c.mondayColType === "status");
+  if (statusColumns.length === 0) return;
+
+  // Collect unique status labels from subitems
+  const subitemLabels = new Set<string>();
+  for (const item of board.items_page.items) {
+    for (const subitem of item.subitems) {
+      for (const raw of subitem.column_values) {
+        if (raw.type !== "status") continue;
+        const val = parseColumnValue(raw);
+        if (val?.type === "status" && val.label) {
+          subitemLabels.add(val.label);
+        }
+      }
+    }
+  }
+
+  if (subitemLabels.size === 0) return;
+
+  // Build subitem options from discovered labels
+  const subOpts: ColumnOption[] = [...subitemLabels]
+    .sort()
+    .map((label) => ({ label }));
+
+  for (const col of statusColumns) {
+    col.subitemOptions = subOpts;
+  }
 }
 
 // --- Outbound mapping ---

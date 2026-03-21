@@ -72,6 +72,8 @@ function inferDateRole(title: string): "start" | "end" | null {
 function parseStatusOptions(settingsStr: string): ColumnOption[] {
   try {
     const settings = JSON.parse(settingsStr) as Record<string, unknown>;
+
+    // Primary format: labels as { "0": "Label", "1": "Label2", ... }
     const labels = settings["labels"] as
       | Record<string, string>
       | undefined;
@@ -79,14 +81,31 @@ function parseStatusOptions(settingsStr: string): ColumnOption[] {
       | Record<string, { color: string }>
       | undefined;
 
-    if (!labels) return [];
+    if (labels && typeof labels === "object" && !Array.isArray(labels)) {
+      const result = Object.entries(labels)
+        .filter(([, label]) => typeof label === "string" && label.length > 0)
+        .map(([index, label]) => ({
+          label: label as string,
+          color: labelColors?.[index]?.color,
+        }));
+      if (result.length > 0) return result;
+    }
 
-    return Object.entries(labels)
-      .filter(([, label]) => typeof label === "string" && label.length > 0)
-      .map(([index, label]) => ({
-        label: label as string,
-        color: labelColors?.[index]?.color,
-      }));
+    // Alternate format: labels_positions_v2 as [{ id, title, color, ... }]
+    const positionsV2 = settings["labels_positions_v2"] as
+      | Array<{ id?: number; title?: string; color?: string }>
+      | undefined;
+    if (Array.isArray(positionsV2)) {
+      const result = positionsV2
+        .filter((item) => typeof item.title === "string" && item.title.length > 0)
+        .map((item) => ({
+          label: item.title!,
+          color: item.color,
+        }));
+      if (result.length > 0) return result;
+    }
+
+    return [];
   } catch {
     return [];
   }
@@ -399,6 +418,10 @@ export function mapBoardToTasks(
     }
   }
 
+  // If settings_str parsing failed to produce options, fall back to
+  // scanning actual item data for unique status labels.
+  backfillStatusOptionsFromData(board, appColumns);
+
   // Collect subitem-specific status options from actual subitem data.
   // Subitems live on a different board with different column IDs, so
   // board.columns[].settings_str only covers parent items. We scan
@@ -410,6 +433,47 @@ export function mapBoardToTasks(
   );
 
   return { tasks, columns: appColumns };
+}
+
+/**
+ * Backfills column.options for status columns where parseStatusOptions
+ * returned empty (settings_str format not recognized). Scans parent item
+ * column_values to discover unique status labels from actual data.
+ */
+function backfillStatusOptionsFromData(
+  board: MondayBoard,
+  appColumns: Column[],
+): void {
+  const emptyStatusCols = appColumns.filter(
+    (c) => c.mondayColType === "status" && (!c.options || c.options.length === 0),
+  );
+  if (emptyStatusCols.length === 0) return;
+
+  const colIdSet = new Set(emptyStatusCols.map((c) => c.mondayColId));
+  const labelsPerCol = new Map<string, Set<string>>();
+
+  for (const item of board.items_page.items) {
+    for (const raw of item.column_values) {
+      if (!colIdSet.has(raw.id)) continue;
+      if (raw.type !== "status") continue;
+      const val = parseColumnValue(raw);
+      if (val?.type === "status" && val.label) {
+        let set = labelsPerCol.get(raw.id);
+        if (!set) {
+          set = new Set();
+          labelsPerCol.set(raw.id, set);
+        }
+        set.add(val.label);
+      }
+    }
+  }
+
+  for (const col of emptyStatusCols) {
+    const labels = labelsPerCol.get(col.mondayColId!);
+    if (labels && labels.size > 0) {
+      col.options = [...labels].sort().map((label) => ({ label }));
+    }
+  }
 }
 
 /**

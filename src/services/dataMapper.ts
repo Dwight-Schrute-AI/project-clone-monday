@@ -292,11 +292,11 @@ function mapItem(
       status = val.label;
     } else if (raw.id === special.peopleColId && val?.type === "people") {
       personIds = val.personsAndTeams.map((p) => String(p.id));
-    } else if (
-      raw.id === special.dependencyColId &&
-      val?.type === "dependency"
-    ) {
-      predecessors = val.linkedItemIds.map((id) => `task-${id}`);
+    } else if (raw.id === special.dependencyColId) {
+      if (val?.type === "dependency" && val.linkedItemIds.length > 0) {
+        predecessors = val.linkedItemIds.map((id) => `task-${id}`);
+      }
+      // Don't fall through to extras — dependency column is handled
     } else if (raw.id === special.pctColId && val?.type === "numbers") {
       pct = val.number ?? 0;
     } else if (val !== null) {
@@ -331,6 +331,10 @@ export function mapBoardToTasks(
   void userDirectory;
 
   const special = identifySpecialColumns(board.columns);
+
+  // Log all column types for diagnostics
+  const colSummary = board.columns.map((c) => `${c.title}(${c.type})`).join(", ");
+  logger.info(`Board columns: ${colSummary}`);
 
   // Build column definitions
   const appColumns: Column[] = [
@@ -443,8 +447,12 @@ export function mapBoardToTasks(
   // subitem column_values to discover their unique status labels.
   collectSubitemStatusOptions(board, appColumns);
 
+  const tasksWithDeps = tasks.filter((t) => t.predecessors.length > 0);
+  const statusCol = appColumns.find((c) => c.mondayColType === "status");
   logger.info(
-    `Mapped board: ${String(tasks.length)} tasks, ${String(appColumns.length)} columns`
+    `Mapped board: ${String(tasks.length)} tasks, ${String(appColumns.length)} columns, ` +
+    `${String(tasksWithDeps.length)} with dependencies, ` +
+    `status options: ${String(statusCol?.options?.length ?? 0)} parent / ${String(statusCol?.subitemOptions?.length ?? 0)} subitem`
   );
 
   return { tasks, columns: appColumns };

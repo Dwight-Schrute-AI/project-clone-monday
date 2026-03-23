@@ -51,7 +51,10 @@ export function SplitPane({
     <div className={styles.splitPane} ref={containerRef}>
       <div
         className={styles.left}
-        style={leftWidth !== null ? { width: leftWidth } : { flex: "0 0 50%" }}
+        style={leftWidth !== null
+          ? { width: leftWidth, "--grid-pane-width": `${String(leftWidth)}px` } as React.CSSProperties
+          : { flex: "0 0 50%", "--grid-pane-width": "50vw" } as React.CSSProperties
+        }
       >
         {left}
       </div>

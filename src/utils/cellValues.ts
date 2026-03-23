@@ -80,11 +80,13 @@ export function getFieldKeyForColumn(task: Task, column: Column): string {
 
 /**
  * Formats a cell value for read-only display.
+ * For dependency columns, resolves task IDs to WBS display numbers.
  */
 export function formatCellDisplay(
   value: unknown,
   column: Column,
   userDirectory: Map<string, { id: string; name: string; email: string }>,
+  displayIds?: Map<string, string>,
 ): string {
   if (value === null || value === undefined || value === "") return "";
 
@@ -98,7 +100,18 @@ export function formatCellDisplay(
   }
 
   if ((column.mondayColType === "dependency" || column.mondayColType === "board_relation") && Array.isArray(value)) {
-    return value.map((id: unknown) => String(id).replace("task-", "")).join(", ");
+    return value
+      .map((id: unknown) => {
+        const taskId = String(id);
+        // Resolve to WBS number if displayIds is available
+        if (displayIds) {
+          const wbs = displayIds.get(taskId);
+          if (wbs) return wbs;
+        }
+        // Fallback: strip task- prefix to show monday ID
+        return taskId.replace("task-", "");
+      })
+      .join(", ");
   }
 
   if (typeof value === "number") return String(value);

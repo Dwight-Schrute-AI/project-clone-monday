@@ -9,11 +9,12 @@ interface DependencyEditorProps {
   value: unknown;
   column: Column;
   taskId: string;
+  displayIds: Map<string, string>;
   onCommit: (value: unknown) => void;
   onCancel: () => void;
 }
 
-export function DependencyEditor({ value, taskId, onCommit, onCancel }: DependencyEditorProps): React.JSX.Element {
+export function DependencyEditor({ value, taskId, displayIds, onCommit, onCancel }: DependencyEditorProps): React.JSX.Element {
   const { state } = useAppContext();
   const currentIds = Array.isArray(value) ? (value as string[]) : [];
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set(currentIds));
@@ -33,7 +34,11 @@ export function DependencyEditor({ value, taskId, onCommit, onCancel }: Dependen
   }, [state.tasks, taskId]);
 
   const filtered = filter
-    ? selectableTasks.filter((t) => t.name.toLowerCase().includes(filter.toLowerCase()))
+    ? selectableTasks.filter((t) => {
+        const lower = filter.toLowerCase();
+        const wbs = displayIds.get(t.id) ?? "";
+        return t.name.toLowerCase().includes(lower) || wbs.startsWith(filter);
+      })
     : selectableTasks;
 
   function handleToggle(depTaskId: string): void {
@@ -88,6 +93,7 @@ export function DependencyEditor({ value, taskId, onCommit, onCancel }: Dependen
                 onChange={() => handleToggle(t.id)}
                 className={styles.checkbox}
               />
+              <span className={styles.taskWbs}>{displayIds.get(t.id) ?? ""}</span>
               <span className={styles.taskName}>{t.name}</span>
             </label>
           ))}

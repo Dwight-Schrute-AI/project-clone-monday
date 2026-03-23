@@ -21,8 +21,9 @@
 }
 
 .rowSubitem {
-  color: var(--text-subitem, #555);
+  color: var(--text-subitem, #777);
   font-size: 12px;
+  background: var(--bg-subitem, rgba(0, 0, 0, 0.02));
 }
 
 .rowSubitem:hover {

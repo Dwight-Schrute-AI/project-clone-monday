@@ -17,7 +17,8 @@
   --gantt-today: #e44258;
   --gantt-arrow: #ff6b35;
   --gantt-bar-subitem: #5b6a80;
-  --text-subitem: #555;
+  --text-subitem: #888;
+  --bg-subitem: rgba(0, 0, 0, 0.02);
   --row-hover: rgba(0, 115, 234, 0.04);
   --row-selected: rgba(0, 115, 234, 0.08);
 }
@@ -39,7 +40,8 @@
   --gantt-today: #e44258;
   --gantt-arrow: #ff8c5a;
   --gantt-bar-subitem: #7a8a9e;
-  --text-subitem: #9ca3af;
+  --text-subitem: #777;
+  --bg-subitem: rgba(255, 255, 255, 0.03);
   --row-hover: rgba(88, 155, 255, 0.06);
   --row-selected: rgba(88, 155, 255, 0.1);
 }

@@ -21,7 +21,7 @@ export function Grid({ scrollContainerRef }: GridProps): React.JSX.Element {
 
   const visibleTasks = useMemo(
     () => selectVisibleTasks(state),
-    [state],
+    [state.tasks, state.collapsedGroups, state.collapsedItems],
   );
   const displayIds = useMemo(
     () => selectDisplayIds(visibleTasks),

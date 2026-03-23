@@ -176,7 +176,8 @@ function parseColumnValue(
         typeof obj["number"] === "number" ? obj["number"] : null;
       return { type: "numbers", number: num };
     }
-    case "people": {
+    case "people":
+    case "multiple-person": {
       const persons = Array.isArray(obj["personsAndTeams"])
         ? (obj["personsAndTeams"] as Array<{
             id: number;
@@ -394,8 +395,11 @@ function mapItem(
         status = raw.text;
       }
       mondayColMap["status"] = raw.id;
-    } else if ((matchesSpecial(special.peopleColId) || matchesType("people")) && val?.type === "people") {
-      personIds = val.personsAndTeams.map((p) => String(p.id));
+    } else if (matchesSpecial(special.peopleColId) || matchesType("people") || matchesType("multiple-person")) {
+      // Extract people: prefer parsed value, fall back to empty
+      if (val?.type === "people") {
+        personIds = val.personsAndTeams.map((p) => String(p.id));
+      }
       mondayColMap["personIds"] = raw.id;
     } else if (matchesSpecial(special.pctColId) && val?.type === "numbers") {
       pct = val.number ?? 0;
@@ -561,7 +565,7 @@ export function mapBoardToTasks(
       key: col.id,
       label: col.title,
       width: DEFAULT_WIDTHS[mondayType],
-      editable: mondayType !== "dependency",
+      editable: true,
       editorType,
       mondayColId: col.id,
       mondayColType: mondayType,

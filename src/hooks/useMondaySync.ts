@@ -89,9 +89,20 @@ export function useMondaySync(): void {
         // For subitems, use the task's mondayColMap to get the correct column ID
         // (subitems live on a different board with different column IDs)
         let effectiveColumn = column;
-        const taskColId = task.mondayColMap[fieldKey];
-        if (task.isSubitem && taskColId && taskColId !== column.mondayColId) {
-          effectiveColumn = { ...column, mondayColId: taskColId };
+        if (task.isSubitem) {
+          const taskColId = task.mondayColMap[fieldKey];
+          if (taskColId) {
+            effectiveColumn = { ...column, mondayColId: taskColId };
+          } else {
+            // Subitem has no mapping for this field — parent column ID won't work
+            logger.warn(
+              `Skipping write for subitem "${task.name}" (${task.mondayId}): ` +
+              `no mondayColMap entry for field "${fieldKey}". ` +
+              `Parent column "${column.mondayColId}" would cause board mismatch.`
+            );
+            dispatch(writeConfirmed(taskId, fieldKey));
+            return;
+          }
         }
 
         const columnValues = mapFieldToMondayValue(fieldKey, pendingWrite.value, effectiveColumn, task);

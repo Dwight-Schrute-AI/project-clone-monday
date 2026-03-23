@@ -1,9 +1,16 @@
-/** @module Structured logging utility — info/warn/error levels, stores LogEntry objects */
+/** @module Structured logging utility — info/warn/error levels, bridges to reducer */
 
 import type { LogEntry } from "../types";
 
 const logStore: LogEntry[] = [];
 let idCounter = 0;
+
+/**
+ * Optional dispatch function to bridge logger entries into the reducer's
+ * state.log (shown in the Log Drawer). Call `logger.setDispatch(dispatch)`
+ * once after the reducer is initialized.
+ */
+let dispatchFn: ((entry: LogEntry) => void) | null = null;
 
 function createEntry(
   level: LogEntry["level"],
@@ -19,6 +26,7 @@ function createEntry(
   };
   logStore.push(entry);
 
+  // Write to browser console
   const consoleFn =
     level === "error"
       ? console.error
@@ -26,6 +34,11 @@ function createEntry(
         ? console.warn
         : console.info;
   consoleFn(`[${level.toUpperCase()}] ${message}`, details !== undefined ? details : "");
+
+  // Bridge to reducer (Log Drawer) if dispatch is wired
+  if (dispatchFn) {
+    dispatchFn(entry);
+  }
 
   return entry;
 }
@@ -45,5 +58,9 @@ export const logger = {
   },
   clear(): void {
     logStore.length = 0;
+  },
+  /** Wire the logger to the app reducer so entries appear in the Log Drawer */
+  setDispatch(fn: (entry: LogEntry) => void): void {
+    dispatchFn = fn;
   },
 } as const;

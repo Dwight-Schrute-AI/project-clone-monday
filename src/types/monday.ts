@@ -67,4 +67,8 @@ export interface MondayRawColumnValue {
   type: string;
   text: string | null;
   value: string | null;
+  /** Populated by inline fragment for DependencyValue / BoardRelationValue */
+  linked_item_ids?: string[];
+  /** Human-readable display value from inline fragment */
+  display_value?: string | null;
 }

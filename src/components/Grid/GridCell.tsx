@@ -10,6 +10,7 @@ import { NumberEditor } from "./editors/NumberEditor";
 import { StatusEditor } from "./editors/StatusEditor";
 import { PeopleEditor } from "./editors/PeopleEditor";
 import { DropdownEditor } from "./editors/DropdownEditor";
+import { DependencyEditor } from "./editors/DependencyEditor";
 import styles from "./GridCell.module.css";
 
 interface GridCellProps {
@@ -39,7 +40,7 @@ export function GridCell({
   const value = getCellValue(task, column, displayIds);
   const displayText = formatCellDisplay(value, column, state.userDirectory);
 
-  const isPickerColumn = column.editorType === "status" || column.editorType === "people" || column.editorType === "dropdown";
+  const isPickerColumn = column.editorType === "status" || column.editorType === "people" || column.editorType === "dropdown" || column.editorType === "dependency";
 
   function handleClick(): void {
     if (isPickerColumn && column.editable && !task.isGroupRow) {
@@ -95,7 +96,7 @@ export function GridCell({
       {editing
         ? (column.mondayColType === "timeline"
           ? <DateRangeEditor startDate={task.start} endDate={task.end} onCommit={handleTimelineCommit} onCancel={onCancelEdit} />
-          : renderEditor(value, column, task.isSubitem, handleEditorCommit, onCancelEdit))
+          : renderEditor(value, column, task.isSubitem, task.id, handleEditorCommit, onCancelEdit))
         : <span className={styles.cellText}>{displayText}</span>}
     </div>
   );
@@ -105,6 +106,7 @@ function renderEditor(
   value: unknown,
   column: Column,
   isSubitem: boolean,
+  taskId: string,
   onCommit: (value: unknown) => void,
   onCancel: () => void,
 ): React.JSX.Element {
@@ -121,5 +123,7 @@ function renderEditor(
       return <PeopleEditor value={value} column={column} onCommit={onCommit} onCancel={onCancel} />;
     case "dropdown":
       return <DropdownEditor value={value} column={column} onCommit={onCommit} onCancel={onCancel} />;
+    case "dependency":
+      return <DependencyEditor value={value} column={column} taskId={taskId} onCommit={onCommit} onCancel={onCancel} />;
   }
 }

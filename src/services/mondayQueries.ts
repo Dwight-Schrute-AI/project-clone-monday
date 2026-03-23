@@ -30,6 +30,14 @@ const ITEM_FIELDS = `
     type
     text
     value
+    ... on DependencyValue {
+      linked_item_ids
+      display_value
+    }
+    ... on BoardRelationValue {
+      linked_item_ids
+      display_value
+    }
   }
 `;
 

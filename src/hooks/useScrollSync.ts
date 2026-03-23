@@ -6,15 +6,21 @@ import { useEffect, useRef } from "react";
  * Synchronizes vertical scroll position between two elements.
  * Uses requestAnimationFrame for smooth updates and a flag to prevent
  * circular scroll events (A scrolls → sets B → B fires scroll → would set A).
+ *
+ * The `enabled` parameter allows the caller to signal when the target
+ * elements are actually mounted (e.g., after board data loads). Without
+ * this, the effect would run once with null refs and never re-attach.
  */
 export function useScrollSync(
   refA: React.RefObject<HTMLDivElement | null>,
   refB: React.RefObject<HTMLDivElement | null>,
+  enabled: boolean = true,
 ): void {
   const isSyncingRef = useRef(false);
   const rafIdRef = useRef(0);
 
   useEffect(() => {
+    if (!enabled) return;
     const elA = refA.current;
     const elB = refB.current;
     if (!elA || !elB) return;
@@ -51,5 +57,5 @@ export function useScrollSync(
       elB.removeEventListener("scroll", handleScrollB);
       cancelAnimationFrame(rafIdRef.current);
     };
-  }, [refA, refB]);
+  }, [refA, refB, enabled]);
 }

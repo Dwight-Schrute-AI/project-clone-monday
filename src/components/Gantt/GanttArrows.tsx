@@ -4,6 +4,7 @@ import { useMemo } from "react";
 import type { Task } from "../../types";
 import type { RowGeometry } from "../../state/selectors";
 import { diffDays } from "../../utils/dateUtils";
+import { logger } from "../../services/logger";
 import styles from "./Gantt.module.css";
 
 interface GanttArrowsProps {
@@ -44,21 +45,28 @@ export function GanttArrows({
   const arrows = useMemo(() => {
     const result: ArrowPath[] = [];
 
+    if (dependencyGraph.size > 0) {
+      logger.info(`Dependency graph: ${String(dependencyGraph.size)} predecessor(s)`);
+    }
+
+    let skippedMissingTask = 0;
+    let skippedMissingDate = 0;
+
     for (const [predId, successorIds] of dependencyGraph) {
       const predTask = taskMap.get(predId);
       const predGeo = rowGeometryMap.get(predId);
-      if (!predTask || !predGeo) continue;
+      if (!predTask || !predGeo) { skippedMissingTask++; continue; }
 
       const predEnd = predTask.end ?? predTask.start;
-      if (!predEnd) continue;
+      if (!predEnd) { skippedMissingDate++; continue; }
 
       for (const succId of successorIds) {
         const succTask = taskMap.get(succId);
         const succGeo = rowGeometryMap.get(succId);
-        if (!succTask || !succGeo) continue;
+        if (!succTask || !succGeo) { skippedMissingTask++; continue; }
 
         const succStart = succTask.start ?? succTask.end;
-        if (!succStart) continue;
+        if (!succStart) { skippedMissingDate++; continue; }
 
         const startX = diffDays(timelineStart, predEnd) * dayWidth + dayWidth;
         const startY = predGeo.y + predGeo.height / 2;
@@ -76,6 +84,13 @@ export function GanttArrows({
           arrowY: endY,
         });
       }
+    }
+
+    if (skippedMissingTask > 0) {
+      logger.warn(`Dependency arrows: skipped ${String(skippedMissingTask)} edge(s) — task not found`);
+    }
+    if (skippedMissingDate > 0) {
+      logger.warn(`Dependency arrows: skipped ${String(skippedMissingDate)} edge(s) — task has no dates`);
     }
 
     return result;

@@ -27,6 +27,7 @@ const MONDAY_TYPE_TO_EDITOR: Record<MondayColumnType, EditorType> = {
   numbers: "number",
   people: "people",
   dependency: "text",
+  board_relation: "text",
   text: "text",
   long_text: "text",
   dropdown: "dropdown",
@@ -43,6 +44,7 @@ const DEFAULT_WIDTHS: Record<MondayColumnType, number> = {
   numbers: 90,
   people: 130,
   dependency: 120,
+  board_relation: 120,
   text: 150,
   long_text: 200,
   dropdown: 130,
@@ -173,7 +175,10 @@ function parseColumnValue(
         : [];
       return { type: "people", personsAndTeams: persons };
     }
-    case "dependency": {
+    case "dependency":
+    case "board_relation": {
+      // Both "dependency" and "board_relation" (Connect boards) columns
+      // use linkedPulseIds to reference related items
       const ids = Array.isArray(obj["linkedPulseIds"])
         ? (obj["linkedPulseIds"] as Array<{ linkedPulseId: number }>).map(
             (lp) => String(lp.linkedPulseId)
@@ -234,7 +239,7 @@ function identifySpecialColumns(
       result.statusColId = col.id;
     } else if (col.type === "people" && !result.peopleColId) {
       result.peopleColId = col.id;
-    } else if (col.type === "dependency" && !result.dependencyColId) {
+    } else if ((col.type === "dependency" || col.type === "board_relation") && !result.dependencyColId) {
       result.dependencyColId = col.id;
     } else if (col.type === "numbers" && !result.pctColId) {
       if (/\b(percent|pct|%|complete)\b/i.test(col.title)) {
@@ -242,6 +247,16 @@ function identifySpecialColumns(
       }
     }
   }
+
+  logger.info(`Special columns: ${JSON.stringify({
+    timeline: result.timelineColId,
+    startDate: result.startDateColId,
+    endDate: result.endDateColId,
+    status: result.statusColId,
+    people: result.peopleColId,
+    dependency: result.dependencyColId,
+    pct: result.pctColId,
+  })}`);
 
   return result;
 }
@@ -455,17 +470,29 @@ function backfillStatusOptionsFromData(
   for (const item of board.items_page.items) {
     for (const raw of item.column_values) {
       if (!colIdSet.has(raw.id)) continue;
-      if (raw.type !== "status") continue;
+
+      // Try parsed value first, fall back to raw.text for the label
+      let label: string | null = null;
       const val = parseColumnValue(raw);
       if (val?.type === "status" && val.label) {
+        label = val.label;
+      } else if (raw.text && raw.text.length > 0 && raw.text !== "0") {
+        label = raw.text;
+      }
+
+      if (label) {
         let set = labelsPerCol.get(raw.id);
         if (!set) {
           set = new Set();
           labelsPerCol.set(raw.id, set);
         }
-        set.add(val.label);
+        set.add(label);
       }
     }
+  }
+
+  if (labelsPerCol.size > 0) {
+    logger.info(`Backfilled status options from item data for ${String(labelsPerCol.size)} column(s)`);
   }
 
   for (const col of emptyStatusCols) {
@@ -497,6 +524,8 @@ function collectSubitemStatusOptions(
         const val = parseColumnValue(raw);
         if (val?.type === "status" && val.label) {
           subitemLabels.add(val.label);
+        } else if (raw.text && raw.text.length > 0 && raw.text !== "0") {
+          subitemLabels.add(raw.text);
         }
       }
     }
@@ -581,7 +610,8 @@ function buildColumnValue(
     case "color_picker":
       return { color: String(value ?? "") };
 
-    case "dependency": {
+    case "dependency":
+    case "board_relation": {
       const itemIds = Array.isArray(value) ? value : [];
       return {
         linkedPulseIds: itemIds.map((id: unknown) => ({

@@ -49,23 +49,28 @@ export function GanttBar({
   // Normal bar mode
   return renderNormalBar(
     effectiveStart, effectiveEnd, task.pct, task.name,
-    timelineStart, dayWidth, y, rowHeight,
+    timelineStart, dayWidth, y, rowHeight, task.isSubitem,
   );
 }
 
 function renderNormalBar(
   start: string, end: string, pct: number, name: string,
   timelineStart: string, dayWidth: number, y: number, rowHeight: number,
+  isSubitem = false,
 ): React.JSX.Element {
   const left = diffDays(timelineStart, start) * dayWidth;
   const width = Math.max(diffDays(start, end) * dayWidth, dayWidth);
   const barHeight = rowHeight - BAR_V_PADDING * 2;
   const top = y + BAR_V_PADDING;
+  const barStyle: React.CSSProperties = {
+    left, top, width, height: barHeight, lineHeight: `${String(barHeight)}px`,
+    ...(isSubitem ? { background: "var(--gantt-bar-subitem)" } : {}),
+  };
 
   return (
     <div
       className={styles.bar}
-      style={{ left, top, width, height: barHeight, lineHeight: `${String(barHeight)}px` }}
+      style={barStyle}
     >
       {pct > 0 && (
         <div className={styles.barFill} style={{ width: `${String(pct)}%` }} />

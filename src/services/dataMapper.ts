@@ -261,6 +261,38 @@ function identifySpecialColumns(
   return result;
 }
 
+/**
+ * Extracts linked item IDs from a dependency/board_relation column value,
+ * regardless of the raw.type string. Handles both linkedPulseIds and
+ * linkedPulseId formats used by different monday.com column types.
+ */
+function parseDependencyIds(raw: MondayRawColumnValue): string[] {
+  if (!raw.value) return [];
+  try {
+    const parsed = JSON.parse(raw.value) as unknown;
+    if (parsed === null || typeof parsed !== "object") return [];
+
+    const obj = parsed as Record<string, unknown>;
+
+    // Standard format: {"linkedPulseIds":[{"linkedPulseId":12345}]}
+    if (Array.isArray(obj["linkedPulseIds"])) {
+      return (obj["linkedPulseIds"] as Array<Record<string, unknown>>)
+        .map((lp) => {
+          const id = lp["linkedPulseId"];
+          return typeof id === "number" ? String(id) : null;
+        })
+        .filter((id): id is string => id !== null);
+    }
+
+    // Alternate format: {"linkedPulseIds":[],"changed_at":"..."} with empty array
+    // (already handled above — returns [])
+
+    return [];
+  } catch {
+    return [];
+  }
+}
+
 function mapItem(
   item: MondayItem,
   boardId: string,
@@ -277,31 +309,60 @@ function mapItem(
   let predecessors: string[] = [];
   let pct = 0;
   const extras: Record<string, unknown> = {};
+  const mondayColMap: Record<string, string> = {};
 
+  // For subitems, match columns by TYPE instead of by parent board column ID,
+  // since subitems live on a separate board with different column IDs.
   for (const raw of item.column_values) {
     const val = parseColumnValue(raw);
 
-    if (raw.id === special.timelineColId && val?.type === "timeline") {
+    // Match by column ID for parent items, by column type for subitems
+    const matchesSpecial = (specialColId: string | null): boolean =>
+      isSubitem ? false : raw.id === specialColId;
+    const matchesType = (colType: string): boolean =>
+      isSubitem && raw.type === colType;
+
+    if ((matchesSpecial(special.timelineColId) || matchesType("timeline")) && val?.type === "timeline") {
       start = val.from;
       end = val.to;
-    } else if (raw.id === special.startDateColId && val?.type === "date") {
+      mondayColMap["start"] = raw.id;
+      mondayColMap["end"] = raw.id;
+    } else if ((matchesSpecial(special.startDateColId) || (isSubitem && raw.type === "date" && !start)) && val?.type === "date") {
       start = val.date;
-    } else if (raw.id === special.endDateColId && val?.type === "date") {
+      mondayColMap["start"] = raw.id;
+    } else if ((matchesSpecial(special.endDateColId) || (isSubitem && raw.type === "date" && start && !end)) && val?.type === "date") {
       end = val.date;
-    } else if (raw.id === special.statusColId && val?.type === "status") {
+      mondayColMap["end"] = raw.id;
+    } else if ((matchesSpecial(special.statusColId) || matchesType("status")) && val?.type === "status") {
       status = val.label;
-    } else if (raw.id === special.peopleColId && val?.type === "people") {
+      mondayColMap["status"] = raw.id;
+    } else if ((matchesSpecial(special.peopleColId) || matchesType("people")) && val?.type === "people") {
       personIds = val.personsAndTeams.map((p) => String(p.id));
-    } else if (raw.id === special.dependencyColId) {
-      if (val?.type === "dependency" && val.linkedItemIds.length > 0) {
-        predecessors = val.linkedItemIds.map((id) => `task-${id}`);
+      mondayColMap["personIds"] = raw.id;
+    } else if (matchesSpecial(special.dependencyColId) || matchesType("dependency") || matchesType("board_relation")) {
+      // Parse dependency values directly from raw JSON, regardless of raw.type
+      const depIds = parseDependencyIds(raw);
+      if (depIds.length > 0) {
+        predecessors = depIds.map((id) => `task-${id}`);
       }
-      // Don't fall through to extras — dependency column is handled
-    } else if (raw.id === special.pctColId && val?.type === "numbers") {
+      mondayColMap["predecessors"] = raw.id;
+    } else if (matchesSpecial(special.pctColId) && val?.type === "numbers") {
       pct = val.number ?? 0;
+      mondayColMap["pct"] = raw.id;
     } else if (val !== null) {
       extras[raw.id] = raw.text ?? "";
     }
+  }
+
+  // For parent items, populate mondayColMap from special columns
+  if (!isSubitem) {
+    if (special.timelineColId) { mondayColMap["start"] = special.timelineColId; mondayColMap["end"] = special.timelineColId; }
+    if (special.startDateColId) mondayColMap["start"] = special.startDateColId;
+    if (special.endDateColId) mondayColMap["end"] = special.endDateColId;
+    if (special.statusColId) mondayColMap["status"] = special.statusColId;
+    if (special.peopleColId) mondayColMap["personIds"] = special.peopleColId;
+    if (special.dependencyColId) mondayColMap["predecessors"] = special.dependencyColId;
+    if (special.pctColId) mondayColMap["pct"] = special.pctColId;
   }
 
   return {
@@ -321,6 +382,7 @@ function mapItem(
     isGroupRow: false,
     isSubitem,
     extras,
+    mondayColMap,
   };
 }
 
@@ -418,22 +480,36 @@ export function mapBoardToTasks(
       isGroupRow: true,
       isSubitem: false,
       extras: { _groupColor: group.color },
+      mondayColMap: {},
     });
 
     const groupItems = board.items_page.items.filter(
       (item) => item.group.id === group.id
     );
 
+    // Map parent items with their subitems
+    const parentTasks: Array<{ parent: Task; children: Task[] }> = [];
     for (const item of groupItems) {
-      tasks.push(
-        mapItem(item, board.id, groupId, group.id, 0, false, special)
+      const parent = mapItem(item, board.id, groupId, group.id, 0, false, special);
+      const children = item.subitems.map((sub) =>
+        mapItem(sub, board.id, groupId, group.id, 1, true, special)
       );
+      parentTasks.push({ parent, children });
+    }
 
-      for (const subitem of item.subitems) {
-        tasks.push(
-          mapItem(subitem, board.id, groupId, group.id, 1, true, special)
-        );
-      }
+    // Sort parent items by start date ascending (nulls last)
+    parentTasks.sort((a, b) => {
+      const aDate = a.parent.start ?? a.parent.end;
+      const bDate = b.parent.start ?? b.parent.end;
+      if (!aDate && !bDate) return 0;
+      if (!aDate) return 1;
+      if (!bDate) return -1;
+      return aDate.localeCompare(bDate);
+    });
+
+    for (const { parent, children } of parentTasks) {
+      tasks.push(parent);
+      tasks.push(...children);
     }
   }
 

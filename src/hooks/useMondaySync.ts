@@ -66,7 +66,15 @@ export function useMondaySync(): void {
           return;
         }
 
-        const columnValues = mapFieldToMondayValue(fieldKey, pendingWrite.value, column, task);
+        // For subitems, use the task's mondayColMap to get the correct column ID
+        // (subitems live on a different board with different column IDs)
+        let effectiveColumn = column;
+        const taskColId = task.mondayColMap[fieldKey];
+        if (task.isSubitem && taskColId && taskColId !== column.mondayColId) {
+          effectiveColumn = { ...column, mondayColId: taskColId };
+        }
+
+        const columnValues = mapFieldToMondayValue(fieldKey, pendingWrite.value, effectiveColumn, task);
         await updateItem(
           connection.token,
           task.mondayBoardId,

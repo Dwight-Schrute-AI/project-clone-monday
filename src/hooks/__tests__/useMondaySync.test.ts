@@ -49,6 +49,7 @@ function makeTask(overrides: Partial<Task> = {}): Task {
     isGroupRow: false,
     isSubitem: false,
     extras: {},
+    mondayColMap: {},
     ...overrides,
   };
 }

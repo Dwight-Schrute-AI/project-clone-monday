@@ -21,9 +21,6 @@
 }
 
 .groupRow {
-  position: sticky;
-  left: 0;
-  z-index: 3;
   display: flex;
   align-items: center;
   height: 40px;
@@ -32,11 +29,14 @@
   font-size: 14px;
   cursor: default;
   background: var(--bg-primary);
+  min-width: max-content;
 }
 
 .groupLabel {
+  position: sticky;
+  left: 0;
+  z-index: 3;
   padding: 0 12px;
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  background: var(--bg-primary);
 }

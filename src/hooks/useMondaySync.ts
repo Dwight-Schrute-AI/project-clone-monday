@@ -181,7 +181,7 @@ function resolveColumnForField(
       return columns.find((c) => c.mondayColType === "people") ?? null;
 
     case "predecessors":
-      return columns.find((c) => c.mondayColType === "dependency") ?? null;
+      return columns.find((c) => c.mondayColType === "dependency" || c.mondayColType === "board_relation") ?? null;
 
     case "name":
       return null; // Handled separately via updateItemName

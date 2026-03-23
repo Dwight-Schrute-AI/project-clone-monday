@@ -17,6 +17,7 @@ interface GridCellProps {
   task: Task;
   column: Column;
   displayIds: Map<string, string>;
+  allDisplayIds: Map<string, string>;
   editing: boolean;
   stickyLeft: number | null;
   width: number;
@@ -29,6 +30,7 @@ export function GridCell({
   task,
   column,
   displayIds,
+  allDisplayIds,
   editing,
   stickyLeft,
   width,
@@ -38,7 +40,7 @@ export function GridCell({
 }: GridCellProps): React.JSX.Element {
   const { state } = useAppContext();
   const value = getCellValue(task, column, displayIds);
-  const displayText = formatCellDisplay(value, column, state.userDirectory, displayIds);
+  const displayText = formatCellDisplay(value, column, state.userDirectory, allDisplayIds, task.predecessorLabels);
 
   const isPickerColumn = column.editorType === "status" || column.editorType === "people" || column.editorType === "dropdown" || column.editorType === "dependency";
 
@@ -96,7 +98,7 @@ export function GridCell({
       {editing
         ? (column.mondayColType === "timeline"
           ? <DateRangeEditor startDate={task.start} endDate={task.end} onCommit={handleTimelineCommit} onCancel={onCancelEdit} />
-          : renderEditor(value, column, task.isSubitem, task.id, displayIds, handleEditorCommit, onCancelEdit))
+          : renderEditor(value, column, task.isSubitem, task.id, allDisplayIds, handleEditorCommit, onCancelEdit))
         : <span className={styles.cellText}>{displayText}</span>}
     </div>
   );

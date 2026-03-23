@@ -457,12 +457,16 @@ function mapItem(
       if (depIds.length > 0) {
         predecessors = depIds.map((id) => `task-${id}`);
         mondayColMap["predecessors"] = raw.id;
-        // Store display labels from API for cross-board predecessor display
+        // Store display labels from API for cross-board predecessor display.
+        // Use display_value (item names) but strip board name prefix if present.
+        // Format from monday.com: "BoardName - ItemName" or just "ItemName"
         const displayVal = raw.display_value ?? raw.text;
-        if (displayVal && depIds.length > 0) {
+        logger.info(`[DEP-LABEL] display_value="${raw.display_value ?? "null"}" text="${raw.text ?? "null"}" chosen="${displayVal ?? "null"}"`);
+        if (displayVal) {
+          // display_value may be one label for each dep ID, comma-separated
           const labels = displayVal.split(",").map((s) => s.trim());
           for (let i = 0; i < depIds.length; i++) {
-            const label = labels[i];
+            let label = labels[i] ?? labels[0]; // fallback to first label
             if (label && label.length > 0) {
               predecessorLabels[`task-${depIds[i]}`] = label;
             }

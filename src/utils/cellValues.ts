@@ -102,15 +102,23 @@ export function formatCellDisplay(
     return value
       .map((id: unknown) => {
         const taskId = String(id);
-        // 1. Resolve to WBS number from all tasks
+        // 1. Resolve to WBS number from all tasks (intra-board deps)
         if (allDisplayIds) {
           const wbs = allDisplayIds.get(taskId);
           if (wbs) return wbs;
         }
         // 2. Use API display label (for cross-board references)
         if (predecessorLabels) {
-          const label = predecessorLabels[taskId];
-          if (label) return label;
+          let label = predecessorLabels[taskId];
+          if (label) {
+            // Strip "BoardName - " prefix if present (monday cross-board format)
+            // Board names are typically short identifiers (e.g. "T26003")
+            const dashIdx = label.indexOf(" - ");
+            if (dashIdx > 0 && dashIdx < 20) {
+              label = label.substring(dashIdx + 3).trim();
+            }
+            if (label.length > 0) return label;
+          }
         }
         // 3. Fallback: strip task- prefix to show monday ID
         return taskId.replace("task-", "");

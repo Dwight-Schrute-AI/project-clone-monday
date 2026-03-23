@@ -24,8 +24,31 @@ interface ArrowPath {
   arrowY: number;
 }
 
-const ARROW_SIZE = 4;
+const ARROW_SIZE = 5;
 const BEND_OFFSET = 12;
+
+/**
+ * Compute the pixel X of a bar's right edge given the task and timeline params.
+ * Matches the rendering logic in GanttBar exactly.
+ */
+function barRightX(task: Task, timelineStart: string, dayWidth: number): number {
+  const start = task.start;
+  const end = task.end;
+  const effectiveStart = start ?? end!;
+  const effectiveEnd = end ?? start!;
+  const left = diffDays(timelineStart, effectiveStart) * dayWidth;
+  const duration = diffDays(effectiveStart, effectiveEnd);
+  const width = Math.max(duration * dayWidth, dayWidth);
+  return left + width;
+}
+
+/**
+ * Compute the pixel X of a bar's left edge.
+ */
+function barLeftX(task: Task, timelineStart: string, dayWidth: number): number {
+  const effectiveStart = task.start ?? task.end!;
+  return diffDays(timelineStart, effectiveStart) * dayWidth;
+}
 
 export function GanttArrows({
   tasks,
@@ -45,33 +68,22 @@ export function GanttArrows({
   const arrows = useMemo(() => {
     const result: ArrowPath[] = [];
 
-    if (dependencyGraph.size > 0) {
-      const sampleTaskIds = Array.from(taskMap.keys()).slice(0, 5);
-      logger.info(
-        `Dependency graph: ${String(dependencyGraph.size)} predecessor(s), ` +
-        `taskMap: ${String(taskMap.size)} entries, ` +
-        `sample IDs: [${sampleTaskIds.join(", ")}], ` +
-        `graph keys: [${Array.from(dependencyGraph.keys()).join(", ")}]`
-      );
-    }
-
     let skippedCrossBoard = 0;
     let skippedMissingGeo = 0;
     let skippedMissingDate = 0;
-    const missingPredIds: string[] = [];
 
     for (const [predId, successorIds] of dependencyGraph) {
       const predTask = taskMap.get(predId);
-      if (!predTask) {
-        skippedCrossBoard++;
-        missingPredIds.push(predId);
-        continue;
-      }
+      if (!predTask) { skippedCrossBoard++; continue; }
       const predGeo = rowGeometryMap.get(predId);
       if (!predGeo) { skippedMissingGeo++; continue; }
 
       const predEnd = predTask.end ?? predTask.start;
       if (!predEnd) { skippedMissingDate++; continue; }
+
+      // Right edge of predecessor bar
+      const startX = barRightX(predTask, timelineStart, dayWidth);
+      const startY = predGeo.y + predGeo.height / 2;
 
       for (const succId of successorIds) {
         const succTask = taskMap.get(succId);
@@ -82,14 +94,25 @@ export function GanttArrows({
         const succStart = succTask.start ?? succTask.end;
         if (!succStart) { skippedMissingDate++; continue; }
 
-        const startX = diffDays(timelineStart, predEnd) * dayWidth + dayWidth;
-        const startY = predGeo.y + predGeo.height / 2;
-        const endX = diffDays(timelineStart, succStart) * dayWidth;
+        // Left edge of successor bar — arrowhead tip lands here
+        const endX = barLeftX(succTask, timelineStart, dayWidth);
         const endY = succGeo.y + succGeo.height / 2;
 
+        // Route: right from pred bar → down/up → right to succ bar
+        // If successor starts after predecessor ends, simple right-angle.
+        // If overlap, route around below/above.
+        let d: string;
         const midX = startX + BEND_OFFSET;
 
-        const d = `M ${String(startX)} ${String(startY)} H ${String(midX)} V ${String(endY)} H ${String(endX)}`;
+        if (endX >= startX + BEND_OFFSET + ARROW_SIZE) {
+          // Normal case: enough horizontal room
+          d = `M ${String(startX)} ${String(startY)} H ${String(midX)} V ${String(endY)} H ${String(endX)}`;
+        } else {
+          // Overlap: route around via a detour below (or above if successor is below)
+          const detourY = Math.max(startY, endY) + 20;
+          const returnX = endX - BEND_OFFSET;
+          d = `M ${String(startX)} ${String(startY)} H ${String(midX)} V ${String(detourY)} H ${String(returnX)} V ${String(endY)} H ${String(endX)}`;
+        }
 
         result.push({
           key: `${predId}-${succId}`,
@@ -102,23 +125,17 @@ export function GanttArrows({
 
     if (skippedCrossBoard > 0) {
       logger.info(
-        `Dependency arrows: ${String(skippedCrossBoard)} edge(s) skipped — predecessor not in taskMap. ` +
-        `Missing IDs: [${missingPredIds.join(", ")}]. ` +
-        `taskMap has ${String(taskMap.size)} tasks.`
+        `Dependency arrows: ${String(skippedCrossBoard)} cross-board edge(s) skipped`
       );
     }
     if (skippedMissingGeo > 0) {
-      logger.warn(`Dependency arrows: ${String(skippedMissingGeo)} edge(s) skipped — task not visible (collapsed group)`);
+      logger.warn(`Dependency arrows: ${String(skippedMissingGeo)} edge(s) skipped — task not visible`);
     }
     if (skippedMissingDate > 0) {
       logger.warn(`Dependency arrows: ${String(skippedMissingDate)} edge(s) skipped — task has no dates`);
     }
     if (result.length > 0) {
       logger.info(`Dependency arrows: rendering ${String(result.length)} arrow(s)`);
-      // Log first 3 arrow paths for debugging coordinates
-      for (const arrow of result.slice(0, 3)) {
-        logger.info(`[ARROW-PATH] key=${arrow.key} d="${arrow.d}" arrowX=${String(arrow.arrowX)} arrowY=${String(arrow.arrowY)}`);
-      }
     }
 
     return result;
@@ -137,12 +154,12 @@ export function GanttArrows({
           <path
             d={arrow.d}
             fill="none"
-            stroke="#e44258"
-            strokeWidth="2.5"
+            stroke="var(--gantt-arrow, var(--text-secondary))"
+            strokeWidth="1.5"
           />
           <polygon
             points={`${String(arrow.arrowX)},${String(arrow.arrowY)} ${String(arrow.arrowX - ARROW_SIZE)},${String(arrow.arrowY - ARROW_SIZE)} ${String(arrow.arrowX - ARROW_SIZE)},${String(arrow.arrowY + ARROW_SIZE)}`}
-            fill="#e44258"
+            fill="var(--gantt-arrow, var(--text-secondary))"
           />
         </g>
       ))}

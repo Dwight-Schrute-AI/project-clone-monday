@@ -55,6 +55,35 @@
   color: var(--text-primary);
 }
 
+.boardSelect {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-primary);
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 4px 8px;
+  cursor: pointer;
+  max-width: 350px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.boardSelect:hover {
+  border-color: var(--accent);
+}
+
+.boardSelect:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+.loadingIndicator {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-right: 8px;
+}
+
 .content {
   overflow: hidden;
 }

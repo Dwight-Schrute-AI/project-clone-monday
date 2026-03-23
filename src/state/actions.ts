@@ -71,6 +71,10 @@ export function taskDeleted(taskId: string): AppAction {
   return { type: "TASK_DELETED", taskId };
 }
 
+export function groupsReordered(groupIds: string[]): AppAction {
+  return { type: "GROUPS_REORDERED", groupIds };
+}
+
 export function themeToggled(): AppAction {
   return { type: "THEME_TOGGLED" };
 }

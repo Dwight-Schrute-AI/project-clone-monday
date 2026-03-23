@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useRef, useCallback, useEffect } from "react";
 import { useAppContext } from "../../state/AppContext";
-import { taskFieldUpdated, taskDeleted } from "../../state/actions";
+import { taskFieldUpdated, taskDeleted, groupsReordered } from "../../state/actions";
 import { selectVisibleTasks, selectDisplayIds } from "../../state/selectors";
 import { ColumnHeader } from "./ColumnHeader";
 import { GridRow } from "./GridRow";
@@ -107,6 +107,47 @@ export function Grid({ scrollContainerRef }: GridProps): React.JSX.Element {
     setDetailTaskId(null);
   }
 
+  // --- Group rename ---
+  const handleGroupRename = useCallback(function handleGroupRename(
+    groupTaskId: string,
+    newName: string,
+  ): void {
+    dispatch(taskFieldUpdated(groupTaskId, "name", newName, ""));
+  }, [dispatch]);
+
+  // --- Group drag-and-drop reorder ---
+  const dragGroupRef = useRef<string | null>(null);
+
+  const handleGroupDragStart = useCallback(function handleGroupDragStart(groupId: string): void {
+    dragGroupRef.current = groupId;
+  }, []);
+
+  const handleGroupDragOver = useCallback(function handleGroupDragOver(targetGroupId: string): void {
+    const sourceGroupId = dragGroupRef.current;
+    if (!sourceGroupId || sourceGroupId === targetGroupId) return;
+
+    // Get current group order
+    const seen = new Set<string>();
+    const groupIds: string[] = [];
+    for (const t of state.tasks) {
+      if (t.isGroupRow && !seen.has(t.groupId)) {
+        seen.add(t.groupId);
+        groupIds.push(t.groupId);
+      }
+    }
+
+    const sourceIdx = groupIds.indexOf(sourceGroupId);
+    const targetIdx = groupIds.indexOf(targetGroupId);
+    if (sourceIdx === -1 || targetIdx === -1) return;
+
+    // Move source to target position
+    groupIds.splice(sourceIdx, 1);
+    groupIds.splice(targetIdx, 0, sourceGroupId);
+
+    dispatch(groupsReordered(groupIds));
+    dragGroupRef.current = sourceGroupId; // keep tracking
+  }, [state.tasks, dispatch]);
+
   const handleColumnResize = useCallback(function handleColumnResize(
     columnKey: string,
     newWidth: number,
@@ -162,6 +203,10 @@ export function Grid({ scrollContainerRef }: GridProps): React.JSX.Element {
               onCommitEdit={handleCommitEdit}
               onCancelEdit={handleCancelEdit}
               onContextMenu={handleContextMenu}
+              onGroupRename={handleGroupRename}
+              onGroupDragStart={handleGroupDragStart}
+              onGroupDragOver={handleGroupDragOver}
+              onGroupDragEnd={() => { dragGroupRef.current = null; }}
             />
           ))}
         </div>

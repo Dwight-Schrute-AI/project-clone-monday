@@ -1,6 +1,7 @@
 /** @module Cell value reading and formatting utilities for the Grid */
 
 import type { Task, Column } from "../types";
+import { diffDays } from "./dateUtils";
 
 /**
  * Reads the display value for a cell from a task, based on the column definition.
@@ -14,6 +15,12 @@ export function getCellValue(
   if (column.key === "_rowNum") return displayIds.get(task.id) ?? "";
   if (column.key === "_name") return task.name;
 
+  // Computed duration: if a column's label contains "duration" and the task has dates, compute it
+  if (/\bduration\b/i.test(column.label) && task.start && task.end) {
+    const days = diffDays(task.start, task.end);
+    return days >= 0 ? days + 1 : 0; // inclusive day count
+  }
+
   // Non-special columns are stored in extras by the dataMapper
   if (column.key in task.extras) return task.extras[column.key];
 
@@ -22,7 +29,7 @@ export function getCellValue(
     case "status":
       return task.status;
     case "timeline":
-      return task.start && task.end ? `${task.start} \u2013 ${task.end}` : (task.start ?? task.end ?? "");
+      return task.start && task.end ? `${task.start} \u2192 ${task.end}` : (task.start ?? task.end ?? "");
     case "date":
       return inferDateFieldValue(task, column);
     case "people":

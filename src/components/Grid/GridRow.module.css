@@ -32,11 +32,44 @@
   min-width: max-content;
 }
 
-.groupLabel {
+.dragHandle {
   position: sticky;
   left: 0;
+  z-index: 3;
+  padding: 0 4px 0 8px;
+  cursor: grab;
+  color: var(--text-secondary);
+  font-size: 12px;
+  background: var(--bg-primary);
+  user-select: none;
+}
+
+.dragHandle:active {
+  cursor: grabbing;
+}
+
+.groupLabel {
+  position: sticky;
+  left: 24px;
   z-index: 3;
   padding: 0 12px;
   white-space: nowrap;
   background: var(--bg-primary);
+  cursor: text;
+}
+
+.groupNameInput {
+  position: sticky;
+  left: 24px;
+  z-index: 3;
+  border: 1px solid var(--accent);
+  border-radius: 3px;
+  padding: 2px 8px;
+  font-size: 14px;
+  font-weight: 600;
+  font-family: inherit;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  outline: none;
+  margin-left: 12px;
 }

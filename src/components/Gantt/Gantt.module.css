@@ -143,4 +143,5 @@
   left: 0;
   pointer-events: none;
   overflow: visible;
+  z-index: 5;
 }

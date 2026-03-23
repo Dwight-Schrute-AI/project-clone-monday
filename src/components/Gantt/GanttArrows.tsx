@@ -115,6 +115,10 @@ export function GanttArrows({
     }
     if (result.length > 0) {
       logger.info(`Dependency arrows: rendering ${String(result.length)} arrow(s)`);
+      // Log first 3 arrow paths for debugging coordinates
+      for (const arrow of result.slice(0, 3)) {
+        logger.info(`[ARROW-PATH] key=${arrow.key} d="${arrow.d}" arrowX=${String(arrow.arrowX)} arrowY=${String(arrow.arrowY)}`);
+      }
     }
 
     return result;
@@ -133,12 +137,12 @@ export function GanttArrows({
           <path
             d={arrow.d}
             fill="none"
-            stroke="var(--text-secondary)"
-            strokeWidth="1.5"
+            stroke="#e44258"
+            strokeWidth="2.5"
           />
           <polygon
             points={`${String(arrow.arrowX)},${String(arrow.arrowY)} ${String(arrow.arrowX - ARROW_SIZE)},${String(arrow.arrowY - ARROW_SIZE)} ${String(arrow.arrowX - ARROW_SIZE)},${String(arrow.arrowY + ARROW_SIZE)}`}
-            fill="var(--text-secondary)"
+            fill="#e44258"
           />
         </g>
       ))}

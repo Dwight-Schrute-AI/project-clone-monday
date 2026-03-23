@@ -1,5 +1,6 @@
 /** @module GridRow — single row: cells, selection, group row handling */
 
+import { useState, useRef } from "react";
 import type { Task, Column } from "../../types";
 import { GridCell } from "./GridCell";
 import styles from "./GridRow.module.css";
@@ -16,6 +17,10 @@ interface GridRowProps {
   onCommitEdit: (taskId: string, fieldKey: string, value: unknown, previousValue: unknown) => void;
   onCancelEdit: () => void;
   onContextMenu: (taskId: string, x: number, y: number) => void;
+  onGroupRename?: (groupId: string, newName: string) => void;
+  onGroupDragStart?: (groupId: string) => void;
+  onGroupDragOver?: (groupId: string) => void;
+  onGroupDragEnd?: () => void;
 }
 
 export function GridRow({
@@ -30,7 +35,15 @@ export function GridRow({
   onCommitEdit,
   onCancelEdit,
   onContextMenu,
+  onGroupRename,
+  onGroupDragStart,
+  onGroupDragOver,
+  onGroupDragEnd,
 }: GridRowProps): React.JSX.Element {
+  const [editingGroupName, setEditingGroupName] = useState(false);
+  const [groupNameDraft, setGroupNameDraft] = useState("");
+  const inputRef = useRef<HTMLInputElement>(null);
+
   function handleClick(): void {
     onSelect(task.id);
   }
@@ -46,13 +59,53 @@ export function GridRow({
       ? task.extras["_groupColor"]
       : "var(--text-secondary)";
 
+    function handleGroupDoubleClick(): void {
+      setGroupNameDraft(task.name);
+      setEditingGroupName(true);
+      setTimeout(() => inputRef.current?.focus(), 0);
+    }
+
+    function handleGroupRenameCommit(): void {
+      const trimmed = groupNameDraft.trim();
+      if (trimmed && trimmed !== task.name && onGroupRename) {
+        onGroupRename(task.id, trimmed);
+      }
+      setEditingGroupName(false);
+    }
+
+    function handleGroupKeyDown(e: React.KeyboardEvent<HTMLInputElement>): void {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        handleGroupRenameCommit();
+      } else if (e.key === "Escape") {
+        e.preventDefault();
+        setEditingGroupName(false);
+      }
+    }
+
     return (
       <div
         className={styles.groupRow}
         style={{ borderLeft: `3px solid ${groupColor}` }}
         onClick={handleClick}
+        draggable
+        onDragStart={() => onGroupDragStart?.(task.groupId)}
+        onDragOver={(e) => { e.preventDefault(); onGroupDragOver?.(task.groupId); }}
+        onDragEnd={() => onGroupDragEnd?.()}
       >
-        <span className={styles.groupLabel}>{task.name}</span>
+        <span className={styles.dragHandle} aria-label="Drag to reorder">&#x2630;</span>
+        {editingGroupName ? (
+          <input
+            ref={inputRef}
+            className={styles.groupNameInput}
+            value={groupNameDraft}
+            onChange={(e) => setGroupNameDraft(e.target.value)}
+            onBlur={handleGroupRenameCommit}
+            onKeyDown={handleGroupKeyDown}
+          />
+        ) : (
+          <span className={styles.groupLabel} onDoubleClick={handleGroupDoubleClick}>{task.name}</span>
+        )}
       </div>
     );
   }

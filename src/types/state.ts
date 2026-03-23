@@ -49,5 +49,6 @@ export type AppAction =
   | { type: "WRITE_FAILED"; taskId: string; fieldKey: string; previousValue: unknown; error: string }
   | { type: "TASK_CREATED"; task: Task }
   | { type: "TASK_DELETED"; taskId: string }
+  | { type: "GROUPS_REORDERED"; groupIds: string[] }
   | { type: "THEME_TOGGLED" }
   | { type: "LOG_ADDED"; entry: LogEntry };

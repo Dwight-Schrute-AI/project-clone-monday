@@ -221,6 +221,17 @@ export function appReducer(state: AppState, action: AppAction): AppState {
     case "TASK_DELETED":
       return { ...state, tasks: state.tasks.filter((t) => t.id !== action.taskId) };
 
+    case "GROUPS_REORDERED": {
+      // Reorder tasks so groups (and their items) appear in the specified order
+      const groupOrder = new Map(action.groupIds.map((id, idx) => [id, idx]));
+      const sortedTasks = [...state.tasks].sort((a, b) => {
+        const aOrder = groupOrder.get(a.groupId) ?? 999;
+        const bOrder = groupOrder.get(b.groupId) ?? 999;
+        return aOrder - bOrder;
+      });
+      return { ...state, tasks: sortedTasks };
+    }
+
     case "THEME_TOGGLED":
       return { ...state, theme: state.theme === "light" ? "dark" : "light" };
 

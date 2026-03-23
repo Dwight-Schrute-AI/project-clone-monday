@@ -35,7 +35,10 @@ const MONDAY_TYPE_TO_EDITOR: Record<MondayColumnType, EditorType> = {
   checkbox: "dropdown",
 };
 
-const KNOWN_COLUMN_TYPES = new Set<string>(Object.keys(MONDAY_TYPE_TO_EDITOR));
+const KNOWN_COLUMN_TYPES = new Set<string>([
+  ...Object.keys(MONDAY_TYPE_TO_EDITOR),
+  "color", // monday.com may report status columns as "color" in column_values
+]);
 
 const DEFAULT_WIDTHS: Record<MondayColumnType, number> = {
   status: 130,
@@ -145,8 +148,12 @@ function parseColumnValue(
   const obj = parsed as Record<string, unknown>;
 
   switch (raw.type) {
-    case "status": {
-      const label = typeof obj["label"] === "string" ? obj["label"] : "";
+    case "status":
+    case "color": {
+      // monday.com column_values may report type as "color" for status columns
+      const label = typeof obj["label"] === "string" && obj["label"].length > 0
+        ? obj["label"]
+        : (raw.text && raw.text.length > 0 ? raw.text : "");
       const index = typeof obj["index"] === "number" ? obj["index"] : 0;
       return { type: "status", label, index };
     }
@@ -243,7 +250,7 @@ function identifySpecialColumns(
       } else if (!result.endDateColId) {
         result.endDateColId = col.id;
       }
-    } else if (col.type === "status" && !result.statusColId) {
+    } else if ((col.type === "status" || col.type === "color") && !result.statusColId) {
       result.statusColId = col.id;
     } else if (col.type === "people" && !result.peopleColId) {
       result.peopleColId = col.id;
@@ -367,8 +374,13 @@ function mapItem(
     } else if ((matchesSpecial(special.endDateColId) || (isSubitem && raw.type === "date" && start && !end)) && val?.type === "date") {
       end = val.date;
       mondayColMap["end"] = raw.id;
-    } else if ((matchesSpecial(special.statusColId) || matchesType("status")) && val?.type === "status") {
-      status = val.label;
+    } else if (matchesSpecial(special.statusColId) || matchesType("status") || matchesType("color")) {
+      // Extract status label: prefer parsed value, fall back to raw.text
+      if (val?.type === "status") {
+        status = val.label;
+      } else if (raw.text && raw.text.length > 0) {
+        status = raw.text;
+      }
       mondayColMap["status"] = raw.id;
     } else if ((matchesSpecial(special.peopleColId) || matchesType("people")) && val?.type === "people") {
       personIds = val.personsAndTeams.map((p) => String(p.id));
@@ -464,7 +476,8 @@ export function mapBoardToTasks(
     if (col.id.startsWith("__")) continue;
     if (!KNOWN_COLUMN_TYPES.has(col.type)) continue;
 
-    const mondayType = col.type as MondayColumnType;
+    // Normalize monday.com internal type names to our MondayColumnType
+    const mondayType = (col.type === "color" ? "status" : col.type) as MondayColumnType;
     const editorType = MONDAY_TYPE_TO_EDITOR[mondayType];
 
     let options: ColumnOption[] | null = null;

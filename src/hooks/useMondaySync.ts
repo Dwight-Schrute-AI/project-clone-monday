@@ -3,7 +3,7 @@
 import { useEffect, useRef } from "react";
 import { useAppContext } from "../state/AppContext";
 import { writeConfirmed, writeFailed } from "../state/actions";
-import { updateItem, updateItemName } from "../services/mondayApi";
+import { updateItem, updateItemName, updateGroupTitle } from "../services/mondayApi";
 import { mapFieldToMondayValue } from "../services/dataMapper";
 import { logger } from "../services/logger";
 import type { Column, PendingWrite, AppState } from "../types";
@@ -44,8 +44,28 @@ export function useMondaySync(): void {
       }
 
       const task = tasks.find((t) => t.id === taskId);
-      if (!task || task.isGroupRow || !task.mondayId) {
-        // Non-writable — clear from pendingWrites without API call
+      if (!task) {
+        dispatch(writeConfirmed(taskId, fieldKey));
+        return;
+      }
+
+      // Group rows: only name (title) can be synced back to monday.com
+      if (task.isGroupRow) {
+        if (fieldKey === "name" && task.mondayGroupId) {
+          await updateGroupTitle(
+            connection.token,
+            activeBoardId,
+            task.mondayGroupId,
+            String(pendingWrite.value),
+          );
+        }
+        const latestPending = stateRef.current.pendingWrites.get(writeKey);
+        if (latestPending && latestPending.timestamp !== pendingWrite.timestamp) return;
+        dispatch(writeConfirmed(taskId, fieldKey));
+        return;
+      }
+
+      if (!task.mondayId) {
         dispatch(writeConfirmed(taskId, fieldKey));
         return;
       }

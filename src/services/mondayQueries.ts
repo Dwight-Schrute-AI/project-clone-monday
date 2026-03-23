@@ -135,3 +135,11 @@ export const DELETE_ITEM_MUTATION = `
     }
   }
 `;
+
+export const UPDATE_GROUP_TITLE_MUTATION = `
+  mutation ($boardId: ID!, $groupId: String!, $newValue: String!) {
+    update_group(board_id: $boardId, group_id: $groupId, attribute: title, new_value: $newValue) {
+      id
+    }
+  }
+`;

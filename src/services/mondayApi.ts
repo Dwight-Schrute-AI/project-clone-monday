@@ -18,6 +18,7 @@ import {
   CHANGE_ITEM_NAME_MUTATION,
   CREATE_ITEM_MUTATION,
   DELETE_ITEM_MUTATION,
+  UPDATE_GROUP_TITLE_MUTATION,
 } from "./mondayQueries";
 import { logger } from "./logger";
 
@@ -248,4 +249,18 @@ export async function deleteItem(
 ): Promise<void> {
   await mondayFetch(token, DELETE_ITEM_MUTATION, { itemId });
   logger.info(`Deleted item ${itemId}`);
+}
+
+export async function updateGroupTitle(
+  token: string,
+  boardId: string,
+  groupId: string,
+  newTitle: string
+): Promise<void> {
+  await mondayFetch(token, UPDATE_GROUP_TITLE_MUTATION, {
+    boardId,
+    groupId,
+    newValue: newTitle,
+  });
+  logger.info(`Updated group "${groupId}" title to "${newTitle}" on board ${boardId}`);
 }

@@ -38,6 +38,14 @@ export function GridCell({
   const value = getCellValue(task, column, displayIds);
   const displayText = formatCellDisplay(value, column, state.userDirectory);
 
+  const isPickerColumn = column.editorType === "status" || column.editorType === "people" || column.editorType === "dropdown";
+
+  function handleClick(): void {
+    if (isPickerColumn && column.editable && !task.isGroupRow) {
+      onStartEdit(task.id, column.key);
+    }
+  }
+
   function handleDoubleClick(): void {
     if (column.editable && !task.isGroupRow) {
       onStartEdit(task.id, column.key);
@@ -68,6 +76,7 @@ export function GridCell({
     <div
       className={classNames.join(" ")}
       style={style}
+      onClick={handleClick}
       onDoubleClick={handleDoubleClick}
     >
       {editing

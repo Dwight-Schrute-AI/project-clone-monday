@@ -23,7 +23,8 @@ function AppInner(): React.JSX.Element {
   const gridScrollRef = useRef<HTMLDivElement>(null);
   const ganttScrollRef = useRef<HTMLDivElement>(null);
 
-  useScrollSync(gridScrollRef, ganttScrollRef);
+  const boardLoaded = state.tasks.length > 0;
+  useScrollSync(gridScrollRef, ganttScrollRef, boardLoaded);
   useMondaySync();
 
   useEffect(() => {

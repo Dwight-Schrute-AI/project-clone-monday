@@ -7,6 +7,7 @@ export type MondayColumnType =
   | "numbers"
   | "people"
   | "dependency"
+  | "board_relation"
   | "text"
   | "long_text"
   | "dropdown"
@@ -43,7 +44,7 @@ export interface MondayGroup {
 export interface MondayColumnDef {
   id: string;
   title: string;
-  type: MondayColumnType;
+  type: string;
   settings_str: string;
 }
 

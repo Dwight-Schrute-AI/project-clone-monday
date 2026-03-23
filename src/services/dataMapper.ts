@@ -26,8 +26,8 @@ const MONDAY_TYPE_TO_EDITOR: Record<MondayColumnType, EditorType> = {
   timeline: "date",
   numbers: "number",
   people: "people",
-  dependency: "text",
-  board_relation: "text",
+  dependency: "dependency",
+  board_relation: "dependency",
   text: "text",
   long_text: "text",
   dropdown: "dropdown",
@@ -290,12 +290,20 @@ function identifySpecialColumns(
 }
 
 /**
- * Extracts linked item IDs from a dependency/board_relation column value,
- * regardless of the raw.type string. Handles both linkedPulseIds and
- * linkedPulseId formats used by different monday.com column types.
+ * Extracts linked item IDs from a dependency/board_relation column value.
+ * Tries multiple approaches in order of preference:
+ * 1. linked_item_ids from GraphQL inline fragment (2024-01+ API)
+ * 2. linkedPulseIds from raw.value JSON (legacy API)
+ * 3. item_ids from raw.value JSON (alternate format)
+ * 4. Comma-separated numeric IDs from raw.text (last resort)
  */
 function parseDependencyIds(raw: MondayRawColumnValue): string[] {
-  // Try parsing from raw.value JSON first
+  // Approach 1: linked_item_ids from inline fragment (modern API)
+  if (Array.isArray(raw.linked_item_ids) && raw.linked_item_ids.length > 0) {
+    return raw.linked_item_ids.map(String);
+  }
+
+  // Approach 2+3: Parse from raw.value JSON (legacy API)
   if (raw.value) {
     try {
       const parsed = JSON.parse(raw.value) as unknown;
@@ -307,7 +315,6 @@ function parseDependencyIds(raw: MondayRawColumnValue): string[] {
           const ids = (obj["linkedPulseIds"] as Array<Record<string, unknown>>)
             .map((lp) => {
               const id = lp["linkedPulseId"];
-              // Handle both number and string IDs from the API
               if (typeof id === "number") return String(id);
               if (typeof id === "string" && id.length > 0) return id;
               return null;
@@ -329,15 +336,15 @@ function parseDependencyIds(raw: MondayRawColumnValue): string[] {
         }
       }
     } catch {
-      // Fall through to text-based parsing
+      // Fall through
     }
   }
 
-  // Fallback: parse comma-separated numeric IDs from raw.text
-  // monday.com's text field for dependency columns contains item names,
-  // but for board_relation it may contain IDs
-  if (raw.text) {
-    const numericIds = raw.text
+  // Approach 4: display_value or text may contain item names (not IDs)
+  // but for board_relation it may contain comma-separated numeric IDs
+  const textSource = raw.display_value ?? raw.text;
+  if (textSource) {
+    const numericIds = textSource
       .split(",")
       .map((s) => s.trim())
       .filter((s) => /^\d+$/.test(s));
@@ -422,7 +429,10 @@ function mapItem(
       raw.type === "dependency" ||
       raw.type === "board_relation";
 
-    // Approach 2: probe the raw JSON for dependency-shaped data
+    // Approach 2: check for linked_item_ids from inline fragment
+    const hasLinkedItemIds = Array.isArray(raw.linked_item_ids) && raw.linked_item_ids.length > 0;
+
+    // Approach 3: probe the raw JSON for dependency-shaped data
     let hasDepShape = false;
     if (raw.value) {
       try {
@@ -431,11 +441,13 @@ function mapItem(
       } catch { /* ignore */ }
     }
 
-    if (isDependencyCol || hasDepShape) {
+    if (isDependencyCol || hasLinkedItemIds || hasDepShape) {
       const depIds = parseDependencyIds(raw);
       logger.info(
         `[DEP] item="${item.name}" (${item.id}) col="${raw.id}" type="${raw.type}" ` +
-        `isDependencyCol=${String(isDependencyCol)} hasDepShape=${String(hasDepShape)} ` +
+        `isDependencyCol=${String(isDependencyCol)} hasLinkedItemIds=${String(hasLinkedItemIds)} ` +
+        `linked_item_ids=${JSON.stringify(raw.linked_item_ids ?? null)} ` +
+        `display_value=${raw.display_value ?? "null"} ` +
         `raw.value=${raw.value ?? "null"} raw.text=${raw.text ?? "null"} ` +
         `parsedIds=[${depIds.join(",")}]`
       );

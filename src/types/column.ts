@@ -2,7 +2,7 @@
 
 import type { MondayColumnType } from "./monday";
 
-export type EditorType = "text" | "date" | "number" | "status" | "people" | "dropdown";
+export type EditorType = "text" | "date" | "number" | "status" | "people" | "dropdown" | "dependency";
 
 export interface Column {
   key: string;

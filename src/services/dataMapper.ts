@@ -40,6 +40,9 @@ const KNOWN_COLUMN_TYPES = new Set<string>([
   "color", // monday.com may report status columns as "color" in column_values
 ]);
 
+/** Column labels to exclude from the grid (case-insensitive match) */
+const HIDDEN_COLUMN_LABELS = new Set(["priority"]);
+
 const DEFAULT_WIDTHS: Record<MondayColumnType, number> = {
   status: 130,
   date: 110,
@@ -263,7 +266,12 @@ function identifySpecialColumns(
     }
   }
 
-  logger.info(`Special columns: ${JSON.stringify({
+  // Log every column definition for diagnostics
+  for (const col of columns) {
+    logger.info(`[COL-DEF] id="${col.id}" title="${col.title}" type="${col.type}"`);
+  }
+
+  logger.info(`[DEP] Special columns identified: ${JSON.stringify({
     timeline: result.timelineColId,
     startDate: result.startDateColId,
     endDate: result.endDateColId,
@@ -272,6 +280,10 @@ function identifySpecialColumns(
     dependency: result.dependencyColId,
     pct: result.pctColId,
   })}`);
+
+  if (!result.dependencyColId) {
+    logger.warn(`[DEP] No dependency column found! Column types present: ${columns.map((c) => `${c.id}:${c.type}`).join(", ")}`);
+  }
 
   return result;
 }
@@ -385,18 +397,60 @@ function mapItem(
     } else if ((matchesSpecial(special.peopleColId) || matchesType("people")) && val?.type === "people") {
       personIds = val.personsAndTeams.map((p) => String(p.id));
       mondayColMap["personIds"] = raw.id;
-    } else if (matchesSpecial(special.dependencyColId) || matchesType("dependency") || matchesType("board_relation")) {
-      // Parse dependency values directly from raw JSON, regardless of raw.type
-      const depIds = parseDependencyIds(raw);
-      if (depIds.length > 0) {
-        predecessors = depIds.map((id) => `task-${id}`);
-      }
-      mondayColMap["predecessors"] = raw.id;
     } else if (matchesSpecial(special.pctColId) && val?.type === "numbers") {
       pct = val.number ?? 0;
       mondayColMap["pct"] = raw.id;
     } else if (val !== null) {
       extras[raw.id] = raw.text ?? "";
+    }
+  }
+
+  // --- Dedicated dependency pass ---
+  // Scan ALL column_values for dependency-shaped data, regardless of type.
+  // This runs as a second pass so it cannot be blocked by the else-if chain.
+  for (const raw of item.column_values) {
+    // Already found dependencies? Skip.
+    if (predecessors.length > 0) break;
+
+    // Approach 1: check if this column was identified as the dependency column
+    const isDependencyCol =
+      raw.id === special.dependencyColId ||
+      raw.type === "dependency" ||
+      raw.type === "board_relation";
+
+    // Approach 2: probe the raw JSON for dependency-shaped data
+    let hasDepShape = false;
+    if (raw.value) {
+      try {
+        const probe = JSON.parse(raw.value) as Record<string, unknown>;
+        hasDepShape = Array.isArray(probe["linkedPulseIds"]) || Array.isArray(probe["item_ids"]);
+      } catch { /* ignore */ }
+    }
+
+    if (isDependencyCol || hasDepShape) {
+      const depIds = parseDependencyIds(raw);
+      logger.info(
+        `[DEP] item="${item.name}" (${item.id}) col="${raw.id}" type="${raw.type}" ` +
+        `isDependencyCol=${String(isDependencyCol)} hasDepShape=${String(hasDepShape)} ` +
+        `raw.value=${raw.value ?? "null"} raw.text=${raw.text ?? "null"} ` +
+        `parsedIds=[${depIds.join(",")}]`
+      );
+      if (depIds.length > 0) {
+        predecessors = depIds.map((id) => `task-${id}`);
+        mondayColMap["predecessors"] = raw.id;
+      }
+    }
+  }
+
+  // Log items that HAVE a dependency column but produced no predecessors
+  if (predecessors.length === 0 && special.dependencyColId) {
+    const depRaw = item.column_values.find((r) => r.id === special.dependencyColId);
+    if (depRaw) {
+      logger.warn(
+        `[DEP] item="${item.name}" (${item.id}) has dependency column ` +
+        `"${depRaw.id}" (type="${depRaw.type}") but no predecessors extracted. ` +
+        `raw.value=${depRaw.value ?? "null"} raw.text=${depRaw.text ?? "null"}`
+      );
     }
   }
 
@@ -444,6 +498,21 @@ export function mapBoardToTasks(
   const colSummary = board.columns.map((c) => `${c.title}(${c.type})`).join(", ");
   logger.info(`Board columns: ${colSummary}`);
 
+  // Dump first item's column_values for dependency debugging
+  const firstItem = board.items_page.items[0];
+  if (firstItem) {
+    logger.info(`[DEP] First item "${firstItem.name}" (${firstItem.id}) has ${String(firstItem.column_values.length)} column_values:`);
+    for (const cv of firstItem.column_values) {
+      const hasLinkedPulse = cv.value?.includes("linkedPulseIds") ?? false;
+      const hasItemIds = cv.value?.includes("item_ids") ?? false;
+      logger.info(
+        `[DEP]   col="${cv.id}" type="${cv.type}" text="${cv.text ?? ""}" ` +
+        `hasLinkedPulse=${String(hasLinkedPulse)} hasItemIds=${String(hasItemIds)} ` +
+        `value=${cv.value ?? "null"}`
+      );
+    }
+  }
+
   // Build column definitions
   const appColumns: Column[] = [
     {
@@ -475,6 +544,7 @@ export function mapBoardToTasks(
   for (const col of board.columns) {
     if (col.id.startsWith("__")) continue;
     if (!KNOWN_COLUMN_TYPES.has(col.type)) continue;
+    if (HIDDEN_COLUMN_LABELS.has(col.title.toLowerCase())) continue;
 
     // Normalize monday.com internal type names to our MondayColumnType
     const mondayType = (col.type === "color" ? "status" : col.type) as MondayColumnType;

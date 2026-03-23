@@ -38,7 +38,7 @@ export function GridCell({
 }: GridCellProps): React.JSX.Element {
   const { state } = useAppContext();
   const value = getCellValue(task, column, displayIds);
-  const displayText = formatCellDisplay(value, column, state.userDirectory);
+  const displayText = formatCellDisplay(value, column, state.userDirectory, displayIds);
 
   const isPickerColumn = column.editorType === "status" || column.editorType === "people" || column.editorType === "dropdown" || column.editorType === "dependency";
 
@@ -96,7 +96,7 @@ export function GridCell({
       {editing
         ? (column.mondayColType === "timeline"
           ? <DateRangeEditor startDate={task.start} endDate={task.end} onCommit={handleTimelineCommit} onCancel={onCancelEdit} />
-          : renderEditor(value, column, task.isSubitem, task.id, handleEditorCommit, onCancelEdit))
+          : renderEditor(value, column, task.isSubitem, task.id, displayIds, handleEditorCommit, onCancelEdit))
         : <span className={styles.cellText}>{displayText}</span>}
     </div>
   );
@@ -107,6 +107,7 @@ function renderEditor(
   column: Column,
   isSubitem: boolean,
   taskId: string,
+  displayIds: Map<string, string>,
   onCommit: (value: unknown) => void,
   onCancel: () => void,
 ): React.JSX.Element {
@@ -124,6 +125,6 @@ function renderEditor(
     case "dropdown":
       return <DropdownEditor value={value} column={column} onCommit={onCommit} onCancel={onCancel} />;
     case "dependency":
-      return <DependencyEditor value={value} column={column} taskId={taskId} onCommit={onCommit} onCancel={onCancel} />;
+      return <DependencyEditor value={value} column={column} taskId={taskId} displayIds={displayIds} onCommit={onCommit} onCancel={onCancel} />;
   }
 }

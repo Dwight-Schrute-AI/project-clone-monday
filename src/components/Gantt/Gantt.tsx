@@ -44,9 +44,11 @@ export function Gantt({ scrollContainerRef }: GanttProps): React.JSX.Element {
     return map;
   }, [rowGeometry]);
 
+  // Build dependency graph from ALL tasks (not just visible) so arrows render
+  // correctly when a predecessor is in a different group that happens to be visible
   const dependencyGraph = useMemo(
-    () => selectDependencyGraph(visibleTasks),
-    [visibleTasks],
+    () => selectDependencyGraph(state.tasks),
+    [state.tasks],
   );
 
   const { start: tStart, end: tEnd } = useMemo(
@@ -124,7 +126,7 @@ export function Gantt({ scrollContainerRef }: GanttProps): React.JSX.Element {
           })}
 
           <GanttArrows
-            tasks={visibleTasks}
+            tasks={state.tasks}
             rowGeometryMap={rowGeometryMap}
             dependencyGraph={dependencyGraph}
             timelineStart={tStart}

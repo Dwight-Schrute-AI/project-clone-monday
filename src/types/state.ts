@@ -24,6 +24,8 @@ export interface AppState {
   activeBoardId: string | null;
   userDirectory: Map<string, { id: string; name: string; email: string }>;
   theme: "light" | "dark";
+  collapsedGroups: Set<string>;
+  collapsedItems: Set<string>;
   pendingWrites: Map<string, PendingWrite>;
   log: LogEntry[];
 }
@@ -50,5 +52,7 @@ export type AppAction =
   | { type: "TASK_CREATED"; task: Task }
   | { type: "TASK_DELETED"; taskId: string }
   | { type: "GROUPS_REORDERED"; groupIds: string[] }
+  | { type: "GROUP_COLLAPSE_TOGGLED"; groupId: string }
+  | { type: "ITEM_COLLAPSE_TOGGLED"; taskId: string }
   | { type: "THEME_TOGGLED" }
   | { type: "LOG_ADDED"; entry: LogEntry };

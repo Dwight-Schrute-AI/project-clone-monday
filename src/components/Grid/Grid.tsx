@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useRef, useCallback, useEffect } from "react";
 import { useAppContext } from "../../state/AppContext";
-import { taskFieldUpdated, taskDeleted, groupsReordered } from "../../state/actions";
+import { taskFieldUpdated, taskDeleted, groupsReordered, groupCollapseToggled, itemCollapseToggled } from "../../state/actions";
 import { selectVisibleTasks, selectDisplayIds } from "../../state/selectors";
 import { ColumnHeader } from "./ColumnHeader";
 import { GridRow } from "./GridRow";
@@ -148,6 +148,27 @@ export function Grid({ scrollContainerRef }: GridProps): React.JSX.Element {
     dragGroupRef.current = sourceGroupId; // keep tracking
   }, [state.tasks, dispatch]);
 
+  // --- Collapse/expand ---
+  const handleToggleGroupCollapse = useCallback(function handleToggleGroupCollapse(groupId: string): void {
+    dispatch(groupCollapseToggled(groupId));
+  }, [dispatch]);
+
+  const handleToggleItemCollapse = useCallback(function handleToggleItemCollapse(taskId: string): void {
+    dispatch(itemCollapseToggled(taskId));
+  }, [dispatch]);
+
+  // Compute which parent items have subitems (to show toggle)
+  const parentsWithChildren = useMemo(() => {
+    const set = new Set<string>();
+    let lastParentId: string | null = null;
+    for (const task of state.tasks) {
+      if (task.isGroupRow) { lastParentId = null; continue; }
+      if (!task.isSubitem) { lastParentId = task.id; continue; }
+      if (lastParentId) set.add(lastParentId);
+    }
+    return set;
+  }, [state.tasks]);
+
   const handleColumnResize = useCallback(function handleColumnResize(
     columnKey: string,
     newWidth: number,
@@ -207,6 +228,17 @@ export function Grid({ scrollContainerRef }: GridProps): React.JSX.Element {
               onGroupDragStart={handleGroupDragStart}
               onGroupDragOver={handleGroupDragOver}
               onGroupDragEnd={() => { dragGroupRef.current = null; }}
+              collapsed={
+                task.isGroupRow
+                  ? state.collapsedGroups.has(task.groupId)
+                  : state.collapsedItems.has(task.id)
+              }
+              hasChildren={parentsWithChildren.has(task.id)}
+              onToggleCollapse={
+                task.isGroupRow
+                  ? handleToggleGroupCollapse
+                  : handleToggleItemCollapse
+              }
             />
           ))}
         </div>

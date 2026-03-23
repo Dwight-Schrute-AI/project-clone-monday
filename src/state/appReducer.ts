@@ -29,6 +29,8 @@ export const initialState: AppState = {
   activeBoardId: null,
   userDirectory: new Map(),
   theme: "light",
+  collapsedGroups: new Set(),
+  collapsedItems: new Set(),
   pendingWrites: new Map(),
   log: [],
 };
@@ -230,6 +232,26 @@ export function appReducer(state: AppState, action: AppAction): AppState {
         return aOrder - bOrder;
       });
       return { ...state, tasks: sortedTasks };
+    }
+
+    case "GROUP_COLLAPSE_TOGGLED": {
+      const next = new Set(state.collapsedGroups);
+      if (next.has(action.groupId)) {
+        next.delete(action.groupId);
+      } else {
+        next.add(action.groupId);
+      }
+      return { ...state, collapsedGroups: next };
+    }
+
+    case "ITEM_COLLAPSE_TOGGLED": {
+      const next = new Set(state.collapsedItems);
+      if (next.has(action.taskId)) {
+        next.delete(action.taskId);
+      } else {
+        next.add(action.taskId);
+      }
+      return { ...state, collapsedItems: next };
     }
 
     case "THEME_TOGGLED":

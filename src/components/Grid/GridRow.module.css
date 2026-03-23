@@ -58,6 +58,50 @@
   cursor: text;
 }
 
+.collapseToggle {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0 4px;
+  font-size: 10px;
+  color: var(--text-secondary);
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.collapseToggle:hover {
+  color: var(--text-primary);
+}
+
+.cellWrapper {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.cellWrapperFixed {
+  position: sticky;
+  z-index: 2;
+  background: var(--bg-primary);
+}
+
+.itemCollapseToggle {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0 2px 0 4px;
+  font-size: 8px;
+  color: var(--text-secondary);
+  line-height: 1;
+  flex-shrink: 0;
+  width: 20px;
+  text-align: center;
+}
+
+.itemCollapseToggle:hover {
+  color: var(--text-primary);
+}
+
 .groupNameInput {
   position: sticky;
   left: 24px;

@@ -75,6 +75,14 @@ export function groupsReordered(groupIds: string[]): AppAction {
   return { type: "GROUPS_REORDERED", groupIds };
 }
 
+export function groupCollapseToggled(groupId: string): AppAction {
+  return { type: "GROUP_COLLAPSE_TOGGLED", groupId };
+}
+
+export function itemCollapseToggled(taskId: string): AppAction {
+  return { type: "ITEM_COLLAPSE_TOGGLED", taskId };
+}
+
 export function themeToggled(): AppAction {
   return { type: "THEME_TOGGLED" };
 }

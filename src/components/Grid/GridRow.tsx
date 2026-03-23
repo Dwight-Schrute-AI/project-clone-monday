@@ -10,6 +10,7 @@ interface GridRowProps {
   columns: Column[];
   columnWidths: Map<string, number>;
   displayIds: Map<string, string>;
+  allDisplayIds: Map<string, string>;
   selected: boolean;
   editingColumnKey: string | null;
   onSelect: (taskId: string) => void;
@@ -31,6 +32,7 @@ export function GridRow({
   columns,
   columnWidths,
   displayIds,
+  allDisplayIds,
   selected,
   editingColumnKey,
   onSelect,
@@ -179,6 +181,7 @@ export function GridRow({
                 task={task}
                 column={col}
                 displayIds={displayIds}
+                allDisplayIds={allDisplayIds}
                 editing={editingColumnKey === col.key}
                 stickyLeft={null}
                 width={w - 20}
@@ -196,6 +199,7 @@ export function GridRow({
             task={task}
             column={col}
             displayIds={displayIds}
+            allDisplayIds={allDisplayIds}
             editing={editingColumnKey === col.key}
             stickyLeft={stickyLeftMap.get(col.key) ?? null}
             width={w}

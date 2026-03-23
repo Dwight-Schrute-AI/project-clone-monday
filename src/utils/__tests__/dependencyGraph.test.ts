@@ -18,6 +18,7 @@ function makeTask(overrides: Partial<Task> = {}): Task {
     status: "",
     personIds: [],
     predecessors: [],
+    predecessorLabels: {},
     indent: 0,
     groupId: "g1",
     mondayGroupId: "mg1",

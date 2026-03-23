@@ -370,6 +370,7 @@ function mapItem(
   let status = "";
   let personIds: string[] = [];
   let predecessors: string[] = [];
+  const predecessorLabels: Record<string, string> = {};
   let pct = 0;
   const extras: Record<string, unknown> = {};
   const mondayColMap: Record<string, string> = {};
@@ -456,6 +457,17 @@ function mapItem(
       if (depIds.length > 0) {
         predecessors = depIds.map((id) => `task-${id}`);
         mondayColMap["predecessors"] = raw.id;
+        // Store display labels from API for cross-board predecessor display
+        const displayVal = raw.display_value ?? raw.text;
+        if (displayVal && depIds.length > 0) {
+          const labels = displayVal.split(",").map((s) => s.trim());
+          for (let i = 0; i < depIds.length; i++) {
+            const label = labels[i];
+            if (label && label.length > 0) {
+              predecessorLabels[`task-${depIds[i]}`] = label;
+            }
+          }
+        }
       }
     }
   }
@@ -494,6 +506,7 @@ function mapItem(
     status,
     personIds,
     predecessors,
+    predecessorLabels,
     indent,
     groupId,
     mondayGroupId,
@@ -609,6 +622,7 @@ export function mapBoardToTasks(
       status: "",
       personIds: [],
       predecessors: [],
+      predecessorLabels: {},
       indent: 0,
       groupId,
       mondayGroupId: group.id,

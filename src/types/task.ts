@@ -11,6 +11,8 @@ export interface Task {
   status: string;
   personIds: string[];
   predecessors: string[];
+  /** Maps predecessor task ID → display label from the API (for cross-board refs) */
+  predecessorLabels: Record<string, string>;
   indent: number;
   groupId: string;
   mondayGroupId: string;

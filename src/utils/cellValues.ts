@@ -84,7 +84,8 @@ export function formatCellDisplay(
   value: unknown,
   column: Column,
   userDirectory: Map<string, { id: string; name: string; email: string }>,
-  displayIds?: Map<string, string>,
+  allDisplayIds?: Map<string, string>,
+  predecessorLabels?: Record<string, string>,
 ): string {
   if (value === null || value === undefined || value === "") return "";
 
@@ -101,12 +102,17 @@ export function formatCellDisplay(
     return value
       .map((id: unknown) => {
         const taskId = String(id);
-        // Resolve to WBS number if displayIds is available
-        if (displayIds) {
-          const wbs = displayIds.get(taskId);
+        // 1. Resolve to WBS number from all tasks
+        if (allDisplayIds) {
+          const wbs = allDisplayIds.get(taskId);
           if (wbs) return wbs;
         }
-        // Fallback: strip task- prefix to show monday ID
+        // 2. Use API display label (for cross-board references)
+        if (predecessorLabels) {
+          const label = predecessorLabels[taskId];
+          if (label) return label;
+        }
+        // 3. Fallback: strip task- prefix to show monday ID
         return taskId.replace("task-", "");
       })
       .join(", ");

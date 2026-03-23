@@ -27,6 +27,12 @@ export function Grid({ scrollContainerRef }: GridProps): React.JSX.Element {
     () => selectDisplayIds(visibleTasks),
     [visibleTasks],
   );
+  // Complete display IDs from all tasks — used for dependency cell display
+  // so predecessor WBS numbers resolve even if the predecessor is in a collapsed group
+  const allDisplayIds = useMemo(
+    () => selectDisplayIds(state.tasks),
+    [state.tasks],
+  );
 
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [editingCell, setEditingCell] = useState<{
@@ -213,6 +219,7 @@ export function Grid({ scrollContainerRef }: GridProps): React.JSX.Element {
               columns={state.columns}
               columnWidths={columnWidths}
               displayIds={displayIds}
+              allDisplayIds={allDisplayIds}
               selected={task.id === selectedTaskId}
               editingColumnKey={
                 editingCell?.taskId === task.id

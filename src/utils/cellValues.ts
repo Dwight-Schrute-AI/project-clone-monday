@@ -34,7 +34,6 @@ export function getCellValue(
     case "people":
       return task.personIds;
     case "dependency":
-    case "board_relation":
       return task.predecessors;
     case "numbers":
       return task.pct;
@@ -62,7 +61,6 @@ export function getFieldKeyForColumn(task: Task, column: Column): string {
     case "people":
       return "personIds";
     case "dependency":
-    case "board_relation":
       return "predecessors";
     case "numbers":
       return "pct";
@@ -99,7 +97,7 @@ export function formatCellDisplay(
       .join(", ");
   }
 
-  if ((column.mondayColType === "dependency" || column.mondayColType === "board_relation") && Array.isArray(value)) {
+  if (column.mondayColType === "dependency" && Array.isArray(value)) {
     return value
       .map((id: unknown) => {
         const taskId = String(id);

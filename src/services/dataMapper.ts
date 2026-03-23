@@ -27,7 +27,7 @@ const MONDAY_TYPE_TO_EDITOR: Record<MondayColumnType, EditorType> = {
   numbers: "number",
   people: "people",
   dependency: "dependency",
-  board_relation: "dependency",
+  board_relation: "text",
   text: "text",
   long_text: "text",
   dropdown: "dropdown",
@@ -258,7 +258,9 @@ function identifySpecialColumns(
       result.statusColId = col.id;
     } else if (col.type === "people" && !result.peopleColId) {
       result.peopleColId = col.id;
-    } else if ((col.type === "dependency" || col.type === "board_relation") && !result.dependencyColId) {
+    } else if (col.type === "dependency" && !result.dependencyColId) {
+      // Only true dependency columns map to task.predecessors (intra-board).
+      // board_relation columns are cross-board links stored in extras.
       result.dependencyColId = col.id;
     } else if (col.type === "numbers" && !result.pctColId) {
       if (/\b(percent|pct|%|complete)\b/i.test(col.title)) {
@@ -423,11 +425,11 @@ function mapItem(
     // Already found dependencies? Skip.
     if (predecessors.length > 0) break;
 
-    // Approach 1: check if this column was identified as the dependency column
+    // Approach 1: check if this column is an intra-board dependency column.
+    // board_relation columns are cross-board links — they don't feed predecessors.
     const isDependencyCol =
       raw.id === special.dependencyColId ||
-      raw.type === "dependency" ||
-      raw.type === "board_relation";
+      raw.type === "dependency";
 
     // Approach 2: check for linked_item_ids from inline fragment
     const hasLinkedItemIds = Array.isArray(raw.linked_item_ids) && raw.linked_item_ids.length > 0;

@@ -12,6 +12,7 @@
   top: 100%;
   left: -2px;
   min-width: 260px;
+  max-width: calc(var(--grid-pane-width, 50vw) * 0.5);
   max-height: 280px;
   background: var(--bg-elevated);
   border: 1px solid var(--border);

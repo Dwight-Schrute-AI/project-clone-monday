@@ -1,6 +1,6 @@
 /** @module App shell — auth, board selection, data loading */
 
-import { useReducer, useEffect, useRef } from "react";
+import { useReducer, useEffect, useRef, useCallback } from "react";
 import { appReducer, initialState } from "./state/appReducer";
 import { AppContext, useAppContext } from "./state/AppContext";
 import { Shell } from "./components/Shell/Shell";
@@ -12,6 +12,7 @@ import { LoadingOverlay } from "./components/common/LoadingOverlay";
 import { useScrollSync } from "./hooks/useScrollSync";
 import { useMondaySync } from "./hooks/useMondaySync";
 import { useUndoStack } from "./hooks/useUndoStack";
+import { logger } from "./services/logger";
 import styles from "./App.module.css";
 
 /**
@@ -66,6 +67,15 @@ function AppInner(): React.JSX.Element {
 function App(): React.JSX.Element {
   const [state, rawDispatch] = useReducer(appReducer, initialState);
   const dispatch = useUndoStack(rawDispatch);
+
+  // Bridge logger → reducer so service-layer logs appear in the Log Drawer
+  const bridgeLog = useCallback(function bridgeLog(entry: { id: string; level: "info" | "warn" | "error"; message: string; timestamp: number; details?: unknown }): void {
+    rawDispatch({ type: "LOG_ADDED", entry });
+  }, [rawDispatch]);
+
+  useEffect(() => {
+    logger.setDispatch(bridgeLog);
+  }, [bridgeLog]);
 
   return (
     <AppContext.Provider value={{ state, dispatch }}>

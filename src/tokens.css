@@ -15,6 +15,7 @@
   --gantt-summary: #6b7280;
   --gantt-weekend: rgba(0, 0, 0, 0.03);
   --gantt-today: #e44258;
+  --gantt-arrow: #ff6b35;
   --row-hover: rgba(0, 115, 234, 0.04);
   --row-selected: rgba(0, 115, 234, 0.08);
 }
@@ -34,6 +35,7 @@
   --gantt-summary: #9ca3af;
   --gantt-weekend: rgba(255, 255, 255, 0.03);
   --gantt-today: #e44258;
+  --gantt-arrow: #ff8c5a;
   --row-hover: rgba(88, 155, 255, 0.06);
   --row-selected: rgba(88, 155, 255, 0.1);
 }

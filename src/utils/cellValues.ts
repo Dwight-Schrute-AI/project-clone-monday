@@ -109,15 +109,16 @@ export function formatCellDisplay(
         }
         // 2. Use API display label (for cross-board references)
         if (predecessorLabels) {
-          let label = predecessorLabels[taskId];
+          const label = predecessorLabels[taskId];
           if (label) {
-            // Strip "BoardName - " prefix if present (monday cross-board format)
-            // Board names are typically short identifiers (e.g. "T26003")
+            // Cross-board format: "BoardCode - BoardName - Details..."
+            // Show board code with arrow indicator (e.g. "↗ T26003")
             const dashIdx = label.indexOf(" - ");
             if (dashIdx > 0 && dashIdx < 20) {
-              label = label.substring(dashIdx + 3).trim();
+              return `\u2197 ${label.substring(0, dashIdx)}`;
             }
-            if (label.length > 0) return label;
+            // No recognizable prefix — truncate
+            return label.length > 25 ? label.substring(0, 22) + "\u2026" : label;
           }
         }
         // 3. Fallback: strip task- prefix to show monday ID

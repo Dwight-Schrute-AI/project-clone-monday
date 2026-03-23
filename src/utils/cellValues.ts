@@ -21,10 +21,9 @@ export function getCellValue(
     return days >= 0 ? days + 1 : 0; // inclusive day count
   }
 
-  // Non-special columns are stored in extras by the dataMapper
-  if (column.key in task.extras) return task.extras[column.key];
-
-  // Special columns: the dataMapper extracted these to top-level Task fields
+  // Special columns: the dataMapper extracted these to top-level Task fields.
+  // Check mondayColType FIRST — if a special column's value leaked into extras
+  // (e.g. due to type mismatch), we still want to return the structured data.
   switch (column.mondayColType) {
     case "status":
       return task.status;
@@ -40,8 +39,13 @@ export function getCellValue(
     case "numbers":
       return task.pct;
     default:
-      return "";
+      break;
   }
+
+  // Non-special columns are stored in extras by the dataMapper
+  if (column.key in task.extras) return task.extras[column.key];
+
+  return "";
 }
 
 /**
@@ -50,8 +54,8 @@ export function getCellValue(
  */
 export function getFieldKeyForColumn(task: Task, column: Column): string {
   if (column.key === "_name") return "name";
-  if (column.key in task.extras) return column.key;
 
+  // Check special column types first (before extras fallback)
   switch (column.mondayColType) {
     case "status":
       return "status";
@@ -67,8 +71,11 @@ export function getFieldKeyForColumn(task: Task, column: Column): string {
     case "date":
       return inferDateRole(column.label) === "end" ? "end" : "start";
     default:
-      return column.key;
+      break;
   }
+
+  if (column.key in task.extras) return column.key;
+  return column.key;
 }
 
 /**

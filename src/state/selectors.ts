@@ -14,11 +14,48 @@ const GROUP_ROW_HEIGHT = 40;
 
 /**
  * Returns tasks visible in the current view.
- * Currently returns all tasks. Will filter by collapsed groups
- * once collapse state is added to AppState.
+ * Filters out children of collapsed groups and subitems of collapsed parent items.
+ * Group header rows remain visible even when collapsed (to allow re-expanding).
+ * Parent item rows remain visible even when collapsed (to allow re-expanding).
  */
 export function selectVisibleTasks(state: AppState): Task[] {
-  return state.tasks;
+  const { collapsedGroups, collapsedItems } = state;
+  if (collapsedGroups.size === 0 && collapsedItems.size === 0) {
+    return state.tasks;
+  }
+
+  const result: Task[] = [];
+  let currentParentId: string | null = null;
+
+  for (const task of state.tasks) {
+    // Group header rows are always visible
+    if (task.isGroupRow) {
+      currentParentId = null;
+      result.push(task);
+      continue;
+    }
+
+    // If the group is collapsed, hide all non-group rows in it
+    if (collapsedGroups.has(task.groupId)) {
+      continue;
+    }
+
+    // Track parent items for subitem collapse
+    if (!task.isSubitem) {
+      currentParentId = task.id;
+      result.push(task);
+      continue;
+    }
+
+    // Subitem: hide if parent is collapsed
+    if (currentParentId && collapsedItems.has(currentParentId)) {
+      continue;
+    }
+
+    result.push(task);
+  }
+
+  return result;
 }
 
 /**

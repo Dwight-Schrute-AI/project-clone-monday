@@ -179,11 +179,19 @@ function parseColumnValue(
     case "board_relation": {
       // Both "dependency" and "board_relation" (Connect boards) columns
       // use linkedPulseIds to reference related items
-      const ids = Array.isArray(obj["linkedPulseIds"])
-        ? (obj["linkedPulseIds"] as Array<{ linkedPulseId: number }>).map(
-            (lp) => String(lp.linkedPulseId)
-          )
-        : [];
+      const ids: string[] = [];
+      if (Array.isArray(obj["linkedPulseIds"])) {
+        for (const lp of obj["linkedPulseIds"] as Array<Record<string, unknown>>) {
+          const pid = lp["linkedPulseId"];
+          if (typeof pid === "number") ids.push(String(pid));
+          else if (typeof pid === "string" && pid.length > 0) ids.push(pid);
+        }
+      } else if (Array.isArray(obj["item_ids"])) {
+        for (const id of obj["item_ids"] as unknown[]) {
+          if (typeof id === "number") ids.push(String(id));
+          else if (typeof id === "string" && id.length > 0) ids.push(id);
+        }
+      }
       return { type: "dependency", linkedItemIds: ids };
     }
     case "text":
@@ -267,30 +275,56 @@ function identifySpecialColumns(
  * linkedPulseId formats used by different monday.com column types.
  */
 function parseDependencyIds(raw: MondayRawColumnValue): string[] {
-  if (!raw.value) return [];
-  try {
-    const parsed = JSON.parse(raw.value) as unknown;
-    if (parsed === null || typeof parsed !== "object") return [];
+  // Try parsing from raw.value JSON first
+  if (raw.value) {
+    try {
+      const parsed = JSON.parse(raw.value) as unknown;
+      if (parsed !== null && typeof parsed === "object") {
+        const obj = parsed as Record<string, unknown>;
 
-    const obj = parsed as Record<string, unknown>;
+        // Standard format: {"linkedPulseIds":[{"linkedPulseId":12345}]}
+        if (Array.isArray(obj["linkedPulseIds"])) {
+          const ids = (obj["linkedPulseIds"] as Array<Record<string, unknown>>)
+            .map((lp) => {
+              const id = lp["linkedPulseId"];
+              // Handle both number and string IDs from the API
+              if (typeof id === "number") return String(id);
+              if (typeof id === "string" && id.length > 0) return id;
+              return null;
+            })
+            .filter((id): id is string => id !== null);
+          if (ids.length > 0) return ids;
+        }
 
-    // Standard format: {"linkedPulseIds":[{"linkedPulseId":12345}]}
-    if (Array.isArray(obj["linkedPulseIds"])) {
-      return (obj["linkedPulseIds"] as Array<Record<string, unknown>>)
-        .map((lp) => {
-          const id = lp["linkedPulseId"];
-          return typeof id === "number" ? String(id) : null;
-        })
-        .filter((id): id is string => id !== null);
+        // Alternate format: {"item_ids":[12345, 67890]}
+        if (Array.isArray(obj["item_ids"])) {
+          const ids = (obj["item_ids"] as unknown[])
+            .map((id) => {
+              if (typeof id === "number") return String(id);
+              if (typeof id === "string" && id.length > 0) return id;
+              return null;
+            })
+            .filter((id): id is string => id !== null);
+          if (ids.length > 0) return ids;
+        }
+      }
+    } catch {
+      // Fall through to text-based parsing
     }
-
-    // Alternate format: {"linkedPulseIds":[],"changed_at":"..."} with empty array
-    // (already handled above — returns [])
-
-    return [];
-  } catch {
-    return [];
   }
+
+  // Fallback: parse comma-separated numeric IDs from raw.text
+  // monday.com's text field for dependency columns contains item names,
+  // but for board_relation it may contain IDs
+  if (raw.text) {
+    const numericIds = raw.text
+      .split(",")
+      .map((s) => s.trim())
+      .filter((s) => /^\d+$/.test(s));
+    if (numericIds.length > 0) return numericIds;
+  }
+
+  return [];
 }
 
 function mapItem(

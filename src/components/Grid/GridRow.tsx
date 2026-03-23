@@ -21,6 +21,9 @@ interface GridRowProps {
   onGroupDragStart?: (groupId: string) => void;
   onGroupDragOver?: (groupId: string) => void;
   onGroupDragEnd?: () => void;
+  collapsed?: boolean;
+  hasChildren?: boolean;
+  onToggleCollapse?: (id: string) => void;
 }
 
 export function GridRow({
@@ -39,6 +42,9 @@ export function GridRow({
   onGroupDragStart,
   onGroupDragOver,
   onGroupDragEnd,
+  collapsed,
+  hasChildren,
+  onToggleCollapse,
 }: GridRowProps): React.JSX.Element {
   const [editingGroupName, setEditingGroupName] = useState(false);
   const [groupNameDraft, setGroupNameDraft] = useState("");
@@ -83,6 +89,11 @@ export function GridRow({
       }
     }
 
+    function handleToggleGroup(e: React.MouseEvent): void {
+      e.stopPropagation();
+      onToggleCollapse?.(task.groupId);
+    }
+
     return (
       <div
         className={styles.groupRow}
@@ -94,6 +105,13 @@ export function GridRow({
         onDragEnd={() => onGroupDragEnd?.()}
       >
         <span className={styles.dragHandle} aria-label="Drag to reorder">&#x2630;</span>
+        <button
+          className={styles.collapseToggle}
+          onClick={handleToggleGroup}
+          aria-label={collapsed ? "Expand group" : "Collapse group"}
+        >
+          {collapsed ? "\u25B6" : "\u25BC"}
+        </button>
         {editingGroupName ? (
           <input
             ref={inputRef}
@@ -124,10 +142,54 @@ export function GridRow({
     }
   }
 
+  function handleToggleItem(e: React.MouseEvent): void {
+    e.stopPropagation();
+    onToggleCollapse?.(task.id);
+  }
+
+  const showItemToggle = hasChildren && !task.isSubitem;
+
   return (
     <div className={rowClass} onClick={handleClick} onContextMenu={handleContextMenu}>
       {columns.map((col) => {
         const w = columnWidths.get(col.key) ?? col.width;
+        const isNameCol = col.key === "_name";
+
+        if (isNameCol && showItemToggle) {
+          // Wrap name cell with collapse toggle for parent items
+          const stickyLeft = stickyLeftMap.get(col.key) ?? null;
+          return (
+            <div
+              key={col.key}
+              className={`${styles.cellWrapper} ${stickyLeft !== null ? styles.cellWrapperFixed : ""}`}
+              style={{
+                width: w,
+                minWidth: w,
+                ...(stickyLeft !== null ? { left: stickyLeft } : {}),
+              }}
+            >
+              <button
+                className={styles.itemCollapseToggle}
+                onClick={handleToggleItem}
+                aria-label={collapsed ? "Expand subitems" : "Collapse subitems"}
+              >
+                {collapsed ? "\u25B6" : "\u25BC"}
+              </button>
+              <GridCell
+                task={task}
+                column={col}
+                displayIds={displayIds}
+                editing={editingColumnKey === col.key}
+                stickyLeft={null}
+                width={w - 20}
+                onStartEdit={onStartEdit}
+                onCommitEdit={onCommitEdit}
+                onCancelEdit={onCancelEdit}
+              />
+            </div>
+          );
+        }
+
         return (
           <GridCell
             key={col.key}

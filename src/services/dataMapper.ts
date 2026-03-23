@@ -684,6 +684,22 @@ export function mapBoardToTasks(
     `status options: ${String(statusCol?.options?.length ?? 0)} parent / ${String(statusCol?.subitemOptions?.length ?? 0)} subitem`
   );
 
+  // Diagnostic: check if predecessor IDs resolve to tasks on this board
+  const allTaskIds = new Set(tasks.map((t) => t.id));
+  const allMondayIds = new Set(tasks.filter((t) => t.mondayId).map((t) => t.mondayId));
+  for (const task of tasksWithDeps) {
+    for (const predId of task.predecessors) {
+      const onBoard = allTaskIds.has(predId);
+      const rawId = predId.replace("task-", "");
+      const mondayIdExists = allMondayIds.has(rawId);
+      logger.info(
+        `[DEP-RESOLVE] "${task.name}" depends on ${predId} → ` +
+        `taskId match: ${String(onBoard)}, mondayId match: ${String(mondayIdExists)}, ` +
+        `label: "${task.predecessorLabels[predId] ?? "none"}"`
+      );
+    }
+  }
+
   return { tasks, columns: appColumns };
 }
 

@@ -46,16 +46,27 @@ export function GanttArrows({
     const result: ArrowPath[] = [];
 
     if (dependencyGraph.size > 0) {
-      logger.info(`Dependency graph: ${String(dependencyGraph.size)} predecessor(s)`);
+      const sampleTaskIds = Array.from(taskMap.keys()).slice(0, 5);
+      logger.info(
+        `Dependency graph: ${String(dependencyGraph.size)} predecessor(s), ` +
+        `taskMap: ${String(taskMap.size)} entries, ` +
+        `sample IDs: [${sampleTaskIds.join(", ")}], ` +
+        `graph keys: [${Array.from(dependencyGraph.keys()).join(", ")}]`
+      );
     }
 
     let skippedCrossBoard = 0;
     let skippedMissingGeo = 0;
     let skippedMissingDate = 0;
+    const missingPredIds: string[] = [];
 
     for (const [predId, successorIds] of dependencyGraph) {
       const predTask = taskMap.get(predId);
-      if (!predTask) { skippedCrossBoard++; continue; }
+      if (!predTask) {
+        skippedCrossBoard++;
+        missingPredIds.push(predId);
+        continue;
+      }
       const predGeo = rowGeometryMap.get(predId);
       if (!predGeo) { skippedMissingGeo++; continue; }
 
@@ -90,7 +101,11 @@ export function GanttArrows({
     }
 
     if (skippedCrossBoard > 0) {
-      logger.info(`Dependency arrows: ${String(skippedCrossBoard)} edge(s) skipped — cross-board dependency (predecessor not on this board)`);
+      logger.info(
+        `Dependency arrows: ${String(skippedCrossBoard)} edge(s) skipped — predecessor not in taskMap. ` +
+        `Missing IDs: [${missingPredIds.join(", ")}]. ` +
+        `taskMap has ${String(taskMap.size)} tasks.`
+      );
     }
     if (skippedMissingGeo > 0) {
       logger.warn(`Dependency arrows: ${String(skippedMissingGeo)} edge(s) skipped — task not visible (collapsed group)`);

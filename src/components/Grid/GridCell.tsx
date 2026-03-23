@@ -5,6 +5,7 @@ import { useAppContext } from "../../state/AppContext";
 import { getCellValue, getFieldKeyForColumn, formatCellDisplay } from "../../utils/cellValues";
 import { TextEditor } from "./editors/TextEditor";
 import { DateEditor } from "./editors/DateEditor";
+import { DateRangeEditor } from "./editors/DateRangeEditor";
 import { NumberEditor } from "./editors/NumberEditor";
 import { StatusEditor } from "./editors/StatusEditor";
 import { PeopleEditor } from "./editors/PeopleEditor";
@@ -57,6 +58,18 @@ export function GridCell({
     onCommitEdit(task.id, fieldKey, newValue, value);
   }
 
+  function handleTimelineCommit(start: string | null, end: string | null): void {
+    if (start !== task.start) {
+      onCommitEdit(task.id, "start", start, task.start);
+    }
+    if (end !== task.end) {
+      onCommitEdit(task.id, "end", end, task.end);
+    }
+    if (start === task.start && end === task.end) {
+      onCancelEdit();
+    }
+  }
+
   const isRowNum = column.key === "_rowNum";
   const classNames = [styles.cell];
   if (stickyLeft !== null) classNames.push(styles.cellFixed);
@@ -80,7 +93,9 @@ export function GridCell({
       onDoubleClick={handleDoubleClick}
     >
       {editing
-        ? renderEditor(value, column, task.isSubitem, handleEditorCommit, onCancelEdit)
+        ? (column.mondayColType === "timeline"
+          ? <DateRangeEditor startDate={task.start} endDate={task.end} onCommit={handleTimelineCommit} onCancel={onCancelEdit} />
+          : renderEditor(value, column, task.isSubitem, handleEditorCommit, onCancelEdit))
         : <span className={styles.cellText}>{displayText}</span>}
     </div>
   );

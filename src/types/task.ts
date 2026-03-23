@@ -17,4 +17,6 @@ export interface Task {
   isGroupRow: boolean;
   isSubitem: boolean;
   extras: Record<string, unknown>;
+  /** Maps field keys (e.g. "status", "personIds") to the actual monday.com column ID for this task's board */
+  mondayColMap: Record<string, string>;
 }

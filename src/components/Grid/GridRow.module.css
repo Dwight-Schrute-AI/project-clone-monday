@@ -20,6 +20,15 @@
   background: var(--row-selected);
 }
 
+.rowSubitem {
+  color: var(--text-subitem, #555);
+  font-size: 12px;
+}
+
+.rowSubitem:hover {
+  background: var(--row-hover);
+}
+
 .groupRow {
   display: flex;
   align-items: center;

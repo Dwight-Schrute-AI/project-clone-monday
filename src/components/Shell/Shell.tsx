@@ -76,12 +76,14 @@ export function Shell({ children }: ShellProps): React.JSX.Element {
   }
 
   const activeBoardName = state.boards.find((b) => b.id === state.activeBoardId)?.name;
+  // Only show project boards matching "T" followed by digits (e.g. T26003, T17032)
+  const projectBoards = state.boards.filter((b) => /^T\d+/.test(b.name));
 
   return (
     <div className={styles.shell}>
       <header className={styles.toolbar}>
         <div className={styles.toolbarLeft}>
-          {state.activeBoardId && state.boards.length > 0 ? (
+          {state.activeBoardId && projectBoards.length > 0 ? (
             <select
               className={styles.boardSelect}
               value={state.activeBoardId}
@@ -89,7 +91,7 @@ export function Shell({ children }: ShellProps): React.JSX.Element {
               disabled={loadingBoard}
               aria-label="Select board"
             >
-              {state.boards.map((b) => (
+              {projectBoards.map((b) => (
                 <option key={b.id} value={b.id}>
                   {b.name}
                 </option>

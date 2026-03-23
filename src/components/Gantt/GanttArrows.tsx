@@ -20,31 +20,24 @@ interface GanttArrowsProps {
 interface ArrowPath {
   key: string;
   d: string;
-  arrowX: number;
-  arrowY: number;
+  /** "right" = arrowhead points right at bar left edge; "down" = arrowhead points down at bar top */
+  direction: "right" | "down";
+  tipX: number;
+  tipY: number;
 }
 
 const ARROW_SIZE = 5;
 const BEND_OFFSET = 12;
+const BAR_V_PADDING = 5;
 
-/**
- * Compute the pixel X of a bar's right edge given the task and timeline params.
- * Matches the rendering logic in GanttBar exactly.
- */
 function barRightX(task: Task, timelineStart: string, dayWidth: number): number {
-  const start = task.start;
-  const end = task.end;
-  const effectiveStart = start ?? end!;
-  const effectiveEnd = end ?? start!;
+  const effectiveStart = task.start ?? task.end!;
+  const effectiveEnd = task.end ?? task.start!;
   const left = diffDays(timelineStart, effectiveStart) * dayWidth;
   const duration = diffDays(effectiveStart, effectiveEnd);
-  const width = Math.max(duration * dayWidth, dayWidth);
-  return left + width;
+  return left + Math.max(duration * dayWidth, dayWidth);
 }
 
-/**
- * Compute the pixel X of a bar's left edge.
- */
 function barLeftX(task: Task, timelineStart: string, dayWidth: number): number {
   const effectiveStart = task.start ?? task.end!;
   return diffDays(timelineStart, effectiveStart) * dayWidth;
@@ -81,7 +74,7 @@ export function GanttArrows({
       const predEnd = predTask.end ?? predTask.start;
       if (!predEnd) { skippedMissingDate++; continue; }
 
-      // Right edge of predecessor bar
+      // Right edge of predecessor bar, center Y
       const startX = barRightX(predTask, timelineStart, dayWidth);
       const startY = predGeo.y + predGeo.height / 2;
 
@@ -94,39 +87,78 @@ export function GanttArrows({
         const succStart = succTask.start ?? succTask.end;
         if (!succStart) { skippedMissingDate++; continue; }
 
-        // Left edge of successor bar — arrowhead tip lands here
-        const endX = barLeftX(succTask, timelineStart, dayWidth);
-        const endY = succGeo.y + succGeo.height / 2;
+        const succLeftX = barLeftX(succTask, timelineStart, dayWidth);
+        const succBarTop = succGeo.y + BAR_V_PADDING;
+        const succCenterY = succGeo.y + succGeo.height / 2;
 
-        // Route: right from pred bar → down/up → right to succ bar
-        // If successor starts after predecessor ends, simple right-angle.
-        // If overlap, route around below/above.
-        let d: string;
+        // Routing strategy:
+        // Always approach the successor from above to avoid crossing over bar faces.
+        // Route: exit pred right → go right → go to above succ row → go to approach X → drop down into bar top
         const midX = startX + BEND_OFFSET;
+        const aboveY = succGeo.y - 4; // just above the successor row
+        // Approach from above, landing on the bar left edge area
+        const approachX = succLeftX + ARROW_SIZE + 2;
 
-        if (endX >= startX + BEND_OFFSET + ARROW_SIZE) {
-          // Normal case: enough horizontal room
-          d = `M ${String(startX)} ${String(startY)} H ${String(midX)} V ${String(endY)} H ${String(endX)}`;
+        let d: string;
+        let direction: "right" | "down";
+        let tipX: number;
+        let tipY: number;
+
+        if (succCenterY <= startY - 10) {
+          // Successor is ABOVE predecessor — route up then left/right to approach from above
+          const aboveSucc = succGeo.y + succGeo.height + 4; // below the successor row
+          d = [
+            `M ${s(startX)} ${s(startY)}`,
+            `H ${s(midX)}`,
+            `V ${s(aboveSucc)}`,
+            `H ${s(approachX)}`,
+            `V ${s(succBarTop)}`,  // backtrack up to bar top
+          ].join(" ");
+          // Actually for above-pred case, arrive from below going up
+          // Let's do a simpler left-entry approach for upward arrows
+          d = [
+            `M ${s(startX)} ${s(startY)}`,
+            `H ${s(midX)}`,
+            `V ${s(aboveY)}`,
+            `H ${s(approachX)}`,
+            `V ${s(succBarTop)}`,
+          ].join(" ");
+          direction = "down";
+          tipX = approachX;
+          tipY = succBarTop;
+        } else if (succLeftX > startX + BEND_OFFSET * 2 + ARROW_SIZE) {
+          // Normal case: successor bar is well to the right — enough room for clean approach
+          // Route: right → down to above succ → right to approach point → down to bar top
+          d = [
+            `M ${s(startX)} ${s(startY)}`,
+            `H ${s(midX)}`,
+            `V ${s(aboveY)}`,
+            `H ${s(approachX)}`,
+            `V ${s(succBarTop)}`,
+          ].join(" ");
+          direction = "down";
+          tipX = approachX;
+          tipY = succBarTop;
         } else {
-          // Overlap: route around via a detour below (or above if successor is below)
-          const detourY = Math.max(startY, endY) + 20;
-          const returnX = endX - BEND_OFFSET;
-          d = `M ${String(startX)} ${String(startY)} H ${String(midX)} V ${String(detourY)} H ${String(returnX)} V ${String(endY)} H ${String(endX)}`;
+          // Bars overlap or are close — route right, down past pred, then left and down above succ
+          d = [
+            `M ${s(startX)} ${s(startY)}`,
+            `H ${s(midX)}`,
+            `V ${s(aboveY)}`,
+            `H ${s(approachX)}`,
+            `V ${s(succBarTop)}`,
+          ].join(" ");
+          direction = "down";
+          tipX = approachX;
+          tipY = succBarTop;
         }
 
-        result.push({
-          key: `${predId}-${succId}`,
-          d,
-          arrowX: endX,
-          arrowY: endY,
-        });
+        result.push({ key: `${predId}-${succId}`, d, direction, tipX, tipY });
       }
     }
 
     if (skippedCrossBoard > 0) {
-      logger.info(
-        `Dependency arrows: ${String(skippedCrossBoard)} cross-board edge(s) skipped`
-      );
+      logger.info(`Dependency arrows: ${String(skippedCrossBoard)} cross-board edge(s) skipped`);
     }
     if (skippedMissingGeo > 0) {
       logger.warn(`Dependency arrows: ${String(skippedMissingGeo)} edge(s) skipped — task not visible`);
@@ -157,12 +189,24 @@ export function GanttArrows({
             stroke="var(--gantt-arrow, var(--text-secondary))"
             strokeWidth="1.5"
           />
-          <polygon
-            points={`${String(arrow.arrowX)},${String(arrow.arrowY)} ${String(arrow.arrowX - ARROW_SIZE)},${String(arrow.arrowY - ARROW_SIZE)} ${String(arrow.arrowX - ARROW_SIZE)},${String(arrow.arrowY + ARROW_SIZE)}`}
-            fill="var(--gantt-arrow, var(--text-secondary))"
-          />
+          {arrow.direction === "right" ? (
+            <polygon
+              points={`${s(arrow.tipX)},${s(arrow.tipY)} ${s(arrow.tipX - ARROW_SIZE)},${s(arrow.tipY - ARROW_SIZE)} ${s(arrow.tipX - ARROW_SIZE)},${s(arrow.tipY + ARROW_SIZE)}`}
+              fill="var(--gantt-arrow, var(--text-secondary))"
+            />
+          ) : (
+            <polygon
+              points={`${s(arrow.tipX)},${s(arrow.tipY)} ${s(arrow.tipX - ARROW_SIZE)},${s(arrow.tipY - ARROW_SIZE)} ${s(arrow.tipX + ARROW_SIZE)},${s(arrow.tipY - ARROW_SIZE)}`}
+              fill="var(--gantt-arrow, var(--text-secondary))"
+            />
+          )}
         </g>
       ))}
     </svg>
   );
+}
+
+/** Stringify a number for SVG path data */
+function s(n: number): string {
+  return String(Math.round(n));
 }

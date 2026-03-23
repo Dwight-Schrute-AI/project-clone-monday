@@ -420,56 +420,31 @@ function mapItem(
   }
 
   // --- Dedicated dependency pass ---
-  // Scan ALL column_values for dependency-shaped data, regardless of type.
-  // This runs as a second pass so it cannot be blocked by the else-if chain.
+  // Only process columns that are true intra-board dependency columns.
+  // board_relation columns are cross-board links — they must NOT populate predecessors.
   for (const raw of item.column_values) {
     // Already found dependencies? Skip.
     if (predecessors.length > 0) break;
 
-    // Approach 1: check if this column is an intra-board dependency column.
-    // board_relation columns are cross-board links — they don't feed predecessors.
+    // Only accept true dependency columns (not board_relation)
     const isDependencyCol =
       raw.id === special.dependencyColId ||
-      raw.type === "dependency";
+      (raw.type === "dependency");
 
-    // Approach 2: check for linked_item_ids from inline fragment
-    const hasLinkedItemIds = Array.isArray(raw.linked_item_ids) && raw.linked_item_ids.length > 0;
+    if (!isDependencyCol || raw.type === "board_relation") continue;
 
-    // Approach 3: probe the raw JSON for dependency-shaped data
-    let hasDepShape = false;
-    if (raw.value) {
-      try {
-        const probe = JSON.parse(raw.value) as Record<string, unknown>;
-        hasDepShape = Array.isArray(probe["linkedPulseIds"]) || Array.isArray(probe["item_ids"]);
-      } catch { /* ignore */ }
-    }
-
-    if (isDependencyCol || hasLinkedItemIds || hasDepShape) {
-      const depIds = parseDependencyIds(raw);
-      logger.info(
-        `[DEP] item="${item.name}" (${item.id}) col="${raw.id}" type="${raw.type}" ` +
-        `isDependencyCol=${String(isDependencyCol)} hasLinkedItemIds=${String(hasLinkedItemIds)} ` +
-        `linked_item_ids=${JSON.stringify(raw.linked_item_ids ?? null)} ` +
-        `display_value=${raw.display_value ?? "null"} ` +
-        `raw.value=${raw.value ?? "null"} raw.text=${raw.text ?? "null"} ` +
-        `parsedIds=[${depIds.join(",")}]`
-      );
-      if (depIds.length > 0) {
-        predecessors = depIds.map((id) => `task-${id}`);
-        mondayColMap["predecessors"] = raw.id;
-        // Store display labels from API for cross-board predecessor display.
-        // Use display_value (item names) but strip board name prefix if present.
-        // Format from monday.com: "BoardName - ItemName" or just "ItemName"
-        const displayVal = raw.display_value ?? raw.text;
-        logger.info(`[DEP-LABEL] display_value="${raw.display_value ?? "null"}" text="${raw.text ?? "null"}" chosen="${displayVal ?? "null"}"`);
-        if (displayVal) {
-          // display_value may be one label for each dep ID, comma-separated
-          const labels = displayVal.split(",").map((s) => s.trim());
-          for (let i = 0; i < depIds.length; i++) {
-            let label = labels[i] ?? labels[0]; // fallback to first label
-            if (label && label.length > 0) {
-              predecessorLabels[`task-${depIds[i]}`] = label;
-            }
+    const depIds = parseDependencyIds(raw);
+    if (depIds.length > 0) {
+      predecessors = depIds.map((id) => `task-${id}`);
+      mondayColMap["predecessors"] = raw.id;
+      // Store display labels from API for cross-board predecessor display.
+      const displayVal = raw.display_value ?? raw.text;
+      if (displayVal) {
+        const labels = displayVal.split(",").map((s) => s.trim());
+        for (let i = 0; i < depIds.length; i++) {
+          const label = labels[i] ?? labels[0];
+          if (label && label.length > 0) {
+            predecessorLabels[`task-${depIds[i]}`] = label;
           }
         }
       }

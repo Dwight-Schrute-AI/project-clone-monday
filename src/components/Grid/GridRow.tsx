@@ -130,9 +130,11 @@ export function GridRow({
     );
   }
 
-  const rowClass = selected
-    ? `${styles.row} ${styles.rowSelected}`
-    : styles.row;
+  const rowClass = [
+    styles.row,
+    selected ? styles.rowSelected : "",
+    task.isSubitem ? styles.rowSubitem : "",
+  ].filter(Boolean).join(" ");
 
   // Compute sticky-left offsets for fixed columns
   let fixedOffset = 0;

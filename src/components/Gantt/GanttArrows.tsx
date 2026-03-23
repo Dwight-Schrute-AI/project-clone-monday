@@ -49,21 +49,24 @@ export function GanttArrows({
       logger.info(`Dependency graph: ${String(dependencyGraph.size)} predecessor(s)`);
     }
 
-    let skippedMissingTask = 0;
+    let skippedCrossBoard = 0;
+    let skippedMissingGeo = 0;
     let skippedMissingDate = 0;
 
     for (const [predId, successorIds] of dependencyGraph) {
       const predTask = taskMap.get(predId);
+      if (!predTask) { skippedCrossBoard++; continue; }
       const predGeo = rowGeometryMap.get(predId);
-      if (!predTask || !predGeo) { skippedMissingTask++; continue; }
+      if (!predGeo) { skippedMissingGeo++; continue; }
 
       const predEnd = predTask.end ?? predTask.start;
       if (!predEnd) { skippedMissingDate++; continue; }
 
       for (const succId of successorIds) {
         const succTask = taskMap.get(succId);
+        if (!succTask) { skippedCrossBoard++; continue; }
         const succGeo = rowGeometryMap.get(succId);
-        if (!succTask || !succGeo) { skippedMissingTask++; continue; }
+        if (!succGeo) { skippedMissingGeo++; continue; }
 
         const succStart = succTask.start ?? succTask.end;
         if (!succStart) { skippedMissingDate++; continue; }
@@ -86,11 +89,17 @@ export function GanttArrows({
       }
     }
 
-    if (skippedMissingTask > 0) {
-      logger.warn(`Dependency arrows: skipped ${String(skippedMissingTask)} edge(s) — task not found`);
+    if (skippedCrossBoard > 0) {
+      logger.info(`Dependency arrows: ${String(skippedCrossBoard)} edge(s) skipped — cross-board dependency (predecessor not on this board)`);
+    }
+    if (skippedMissingGeo > 0) {
+      logger.warn(`Dependency arrows: ${String(skippedMissingGeo)} edge(s) skipped — task not visible (collapsed group)`);
     }
     if (skippedMissingDate > 0) {
-      logger.warn(`Dependency arrows: skipped ${String(skippedMissingDate)} edge(s) — task has no dates`);
+      logger.warn(`Dependency arrows: ${String(skippedMissingDate)} edge(s) skipped — task has no dates`);
+    }
+    if (result.length > 0) {
+      logger.info(`Dependency arrows: rendering ${String(result.length)} arrow(s)`);
     }
 
     return result;

@@ -53,6 +53,31 @@
   background: var(--gantt-weekend);
 }
 
+/* --- Project Summary Bar --- */
+
+.projectSummaryRow {
+  flex-shrink: 0;
+  height: 24px;
+  background: var(--bg-surface);
+  border-bottom: 2px solid var(--border);
+  overflow: hidden;
+  position: relative;
+}
+
+.projectSummaryInner {
+  position: relative;
+  height: 100%;
+}
+
+.projectSummaryBar {
+  position: absolute;
+  top: 7px;
+  height: 10px;
+  background: var(--accent);
+  border-radius: 2px;
+  opacity: 0.7;
+}
+
 /* --- Bar Area --- */
 
 .barArea {

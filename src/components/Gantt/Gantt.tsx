@@ -1,6 +1,6 @@
 /** @module Gantt — container: time header, bar area, today line, dependency arrows */
 
-import { useMemo, useRef } from "react";
+import { useMemo, useRef, useEffect } from "react";
 import { useAppContext } from "../../state/AppContext";
 import { selectVisibleTasks, selectRowGeometry, selectDependencyGraph } from "../../state/selectors";
 import type { RowGeometry } from "../../state/selectors";
@@ -35,6 +35,24 @@ interface GanttProps {
 export function Gantt({ scrollContainerRef }: GanttProps): React.JSX.Element {
   const { state } = useAppContext();
   const barAreaRef = useRef<HTMLDivElement>(null);
+  const projectSummaryRef = useRef<HTMLDivElement>(null);
+  const timeHeaderRef = useRef<HTMLDivElement>(null);
+
+  // Sync project summary bar + time header with barArea horizontal scroll
+  useEffect(() => {
+    const barArea = scrollContainerRef?.current ?? barAreaRef.current;
+    if (!barArea) return;
+
+    function handleScroll(): void {
+      if (barArea) {
+        if (projectSummaryRef.current) projectSummaryRef.current.scrollLeft = barArea.scrollLeft;
+        if (timeHeaderRef.current) timeHeaderRef.current.scrollLeft = barArea.scrollLeft;
+      }
+    }
+
+    barArea.addEventListener("scroll", handleScroll);
+    return () => { barArea.removeEventListener("scroll", handleScroll); };
+  }, [scrollContainerRef]);
 
   const preset = ZOOM_PRESETS[state.ganttZoom] ?? ZOOM_PRESETS[4]!;
   const dayWidth = preset.dayWidth;
@@ -87,14 +105,43 @@ export function Gantt({ scrollContainerRef }: GanttProps): React.JSX.Element {
   // Only show individual day numbers when zoomed in enough
   const showDayNumbers = dayWidth >= 16;
 
+  // Project-level summary: earliest start to latest end across ALL tasks
+  const projectRange = useMemo(() => {
+    let min: string | null = null;
+    let max: string | null = null;
+    for (const t of state.tasks) {
+      if (t.isGroupRow) continue;
+      if (t.start && (!min || t.start < min)) min = t.start;
+      if (t.end && (!max || t.end > max)) max = t.end;
+    }
+    return min && max ? { start: min, end: max } : null;
+  }, [state.tasks]);
+
   return (
     <div className={styles.gantt}>
-      <TimeHeader
-        timelineStart={tStart}
-        timelineEnd={tEnd}
-        dayWidth={dayWidth}
-        showDayNumbers={showDayNumbers}
-      />
+      <div ref={timeHeaderRef} style={{ flexShrink: 0, overflow: "hidden" }}>
+        <TimeHeader
+          timelineStart={tStart}
+          timelineEnd={tEnd}
+          dayWidth={dayWidth}
+          showDayNumbers={showDayNumbers}
+        />
+      </div>
+
+      {/* Project summary bar — aligns with Grid summary row */}
+      {projectRange && (
+        <div className={styles.projectSummaryRow} ref={projectSummaryRef}>
+          <div className={styles.projectSummaryInner} style={{ width: totalWidth }}>
+            <div
+              className={styles.projectSummaryBar}
+              style={{
+                left: diffDays(tStart, projectRange.start) * dayWidth,
+                width: Math.max(diffDays(projectRange.start, projectRange.end) * dayWidth, dayWidth),
+              }}
+            />
+          </div>
+        </div>
+      )}
 
       <div className={styles.barArea} ref={scrollContainerRef ?? barAreaRef}>
         <div

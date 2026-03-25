@@ -44,11 +44,9 @@ function diffDays(a: string, b: string): number {
 /**
  * Convert app Task[] → SVAR {tasks, links}.
  *
- * Strategy: NEVER use type:"summary" (it crashes if children are missing).
- * Instead, all tasks are type:"task" or type:"milestone".
- * Groups are represented as regular tasks spanning their date range.
- * Parent items with subitems are also regular tasks.
- * Only tasks WITH dates are included — dateless tasks are skipped.
+ * Per SVAR quickstart: tasks can have start + end + duration.
+ * Summaries are fine AS LONG AS they have start/end/duration.
+ * Tasks without dates are skipped.
  */
 export function tasksToSvar(appTasks: Task[]): {
   tasks: Array<Record<string, unknown>>;
@@ -58,34 +56,32 @@ export function tasksToSvar(appTasks: Task[]): {
   const links: SvarLink[] = [];
   let linkId = 1;
 
-  // Assign numeric IDs to all tasks
+  // Assign numeric IDs
   for (const t of appTasks) numId(t.id);
 
-  // Collect group numeric IDs
+  // Collect group numeric IDs and compute group date ranges
   const groupNums = new Map<string, number>();
-  for (const t of appTasks) {
-    if (t.isGroupRow) groupNums.set(t.groupId, numId(t.id));
-  }
-
-  // Compute date ranges per group (for group summary bars)
   const groupRanges = new Map<string, { min: string; max: string }>();
   for (const t of appTasks) {
-    if (t.isGroupRow) continue;
-    const d1 = t.start;
-    const d2 = t.end;
-    const range = groupRanges.get(t.groupId);
-    if (d1) {
-      if (!range) groupRanges.set(t.groupId, { min: d1, max: d1 });
-      else {
-        if (d1 < range.min) range.min = d1;
-        if (d1 > range.max) range.max = d1;
-      }
+    if (t.isGroupRow) {
+      groupNums.set(t.groupId, numId(t.id));
+      continue;
     }
-    if (d2) {
-      if (!range) groupRanges.set(t.groupId, { min: d2, max: d2 });
-      else {
-        if (d2 < range.min) range.min = d2;
-        if (d2 > range.max) range.max = d2;
+    for (const d of [t.start, t.end]) {
+      if (!d) continue;
+      const r = groupRanges.get(t.groupId);
+      if (!r) { groupRanges.set(t.groupId, { min: d, max: d }); }
+      else { if (d < r.min) r.min = d; if (d > r.max) r.max = d; }
+    }
+  }
+
+  // Find parent tasks with subitems
+  const hasChildren = new Set<string>();
+  for (let i = 0; i < appTasks.length; i++) {
+    if (appTasks[i]!.isSubitem) {
+      for (let j = i - 1; j >= 0; j--) {
+        const p = appTasks[j]!;
+        if (!p.isSubitem && !p.isGroupRow) { hasChildren.add(p.id); break; }
       }
     }
   }
@@ -96,21 +92,14 @@ export function tasksToSvar(appTasks: Task[]): {
     const id = numId(t.id);
 
     if (t.isGroupRow) {
-      // Group → regular task spanning group date range
+      // Group → summary with computed date range (SVAR requires dates on summaries)
       const range = groupRanges.get(t.groupId);
-      if (range) {
-        tasks.push({
-          id,
-          text: t.name,
-          start: toDate(range.min),
-          duration: diffDays(range.min, range.max),
-          progress: 0,
-          parent: 0,
-          type: "task",
-          open: true,
-        });
-      }
-      // Skip groups with no dated tasks
+      if (!range) { curParentNum = 0; continue; } // skip empty groups
+      const dur = diffDays(range.min, range.max);
+      tasks.push({
+        id, text: t.name, start: toDate(range.min), end: toDate(range.max),
+        duration: dur, progress: 0, parent: 0, type: "summary", open: true,
+      });
       curParentNum = 0;
       continue;
     }
@@ -120,12 +109,21 @@ export function tasksToSvar(appTasks: Task[]): {
     if (t.isSubitem && curParentNum > 0) parent = curParentNum;
     if (!t.isSubitem) curParentNum = id;
 
-    if (t.start && t.end && t.start !== t.end) {
-      // Normal task with date range
-      tasks.push({ id, text: t.name, start: toDate(t.start), duration: diffDays(t.start, t.end), progress: t.pct, parent, type: "task" });
+    if (t.start && t.end) {
+      const dur = diffDays(t.start, t.end);
+      const isSummary = hasChildren.has(t.id);
+      tasks.push({
+        id, text: t.name, start: toDate(t.start), end: toDate(t.end),
+        duration: dur, progress: t.pct, parent,
+        type: isSummary ? "summary" : "task",
+        ...(isSummary ? { open: true } : {}),
+      });
     } else if (t.start || t.end) {
-      // Single date → milestone
-      tasks.push({ id, text: t.name, start: toDate((t.start ?? t.end)!), progress: t.pct, parent, type: "milestone" });
+      const d = (t.start ?? t.end)!;
+      tasks.push({
+        id, text: t.name, start: toDate(d), end: toDate(d),
+        duration: 0, progress: t.pct, parent, type: "milestone",
+      });
     } else {
       // No dates — skip
       continue;
@@ -140,35 +138,32 @@ export function tasksToSvar(appTasks: Task[]): {
     }
   }
 
-  // Validate: remove any tasks whose parent doesn't exist in output
+  // Validate: orphaned children (parent skipped) → promote to root
   const taskIds = new Set(tasks.map((t) => t["id"] as number));
-  const validTasks = tasks.map((t) => {
+  for (const t of tasks) {
     const p = t["parent"] as number;
-    if (p !== 0 && !taskIds.has(p)) {
-      return { ...t, parent: 0 }; // orphan → promote to root
-    }
-    return t;
-  });
+    if (p !== 0 && !taskIds.has(p)) t["parent"] = 0;
+  }
 
-  return { tasks: validTasks, links };
+  return { tasks, links };
 }
 
 /** Convert SVAR edit event back to app field updates */
 export function svarChangeToApp(
-  task: { id: number; start?: Date; duration?: number; text?: string; progress?: number },
+  task: { id: number; start?: Date; end?: Date; duration?: number; text?: string; progress?: number },
 ): { appId: string; fields: Array<{ key: string; value: unknown }> } | null {
   const appId = toAppId(task.id);
   if (!appId) return null;
 
   const fields: Array<{ key: string; value: unknown }> = [];
   if (task.text !== undefined) fields.push({ key: "name", value: task.text });
-  if (task.start !== undefined) {
-    fields.push({ key: "start", value: fmt(task.start) });
-    if (task.duration !== undefined) {
-      const end = new Date(task.start);
-      end.setDate(end.getDate() + task.duration);
-      fields.push({ key: "end", value: fmt(end) });
-    }
+  if (task.start !== undefined) fields.push({ key: "start", value: fmt(task.start) });
+  if (task.end !== undefined) {
+    fields.push({ key: "end", value: fmt(task.end) });
+  } else if (task.start !== undefined && task.duration !== undefined) {
+    const end = new Date(task.start);
+    end.setDate(end.getDate() + task.duration);
+    fields.push({ key: "end", value: fmt(end) });
   }
   if (task.progress !== undefined) fields.push({ key: "pct", value: task.progress });
   return { appId, fields };

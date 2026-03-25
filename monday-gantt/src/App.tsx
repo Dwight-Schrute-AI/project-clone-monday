@@ -16,10 +16,18 @@ const SCALES_WEEK = [
   { unit: "week" as const, step: 1, format: "Week %W" },
 ];
 
+// Grid columns — use template for custom fields from our adapter
 const GANTT_COLUMNS = [
-  { id: "text", header: "Task Name", flexgrow: 1, width: 300, editor: "text" as const },
-  { id: "start", header: "Start", width: 110, editor: "datepicker" as const },
-  { id: "duration", header: "Days", width: 60, align: "center" as const, editor: "text" as const },
+  { id: "text", header: "Task Name", flexgrow: 1, width: 280, editor: "text" as const },
+  { id: "_owner", header: "Owner", width: 120,
+    template: (t: Record<string, unknown>) => (t["_owner"] as string) || "" },
+  { id: "_status", header: "Status", width: 100,
+    template: (t: Record<string, unknown>) => (t["_status"] as string) || "" },
+  { id: "_startFmt", header: "Start", width: 110,
+    template: (t: Record<string, unknown>) => (t["_startFmt"] as string) || "" },
+  { id: "duration", header: "Days", width: 55, align: "center" as const, editor: "text" as const },
+  { id: "_dept", header: "Dept", width: 100,
+    template: (t: Record<string, unknown>) => (t["_dept"] as string) || "" },
 ];
 
 // ─── Styles ──────────────────────────────────────────────────────
@@ -62,6 +70,7 @@ class GanttErrorBoundary extends Component<{ children: ReactNode }, { error: Err
 // ─── App ─────────────────────────────────────────────────────────
 
 type Screen = "connect" | "pickBoard" | "loading" | "gantt";
+type UserDir = Map<string, { id: string; name: string; email: string }>;
 
 export default function App(): React.JSX.Element {
   const [screen, setScreen] = useState<Screen>("connect");
@@ -71,6 +80,7 @@ export default function App(): React.JSX.Element {
   const [activeBoardId, setActiveBoardId] = useState<string | null>(null);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [columns, setColumns] = useState<Column[]>([]);
+  const [userDir, setUserDir] = useState<UserDir>(new Map());
   const [error, setError] = useState<string | null>(null);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [api, setApi] = useState<any>(null);
@@ -96,14 +106,15 @@ export default function App(): React.JSX.Element {
     setScreen("loading");
     setError(null);
     try {
-      const [boardData, userDir] = await Promise.all([
+      const [boardData, ud] = await Promise.all([
         fetchBoardData(token, boardId),
         fetchUsers(token),
       ]);
-      const { tasks: t, columns: c } = mapBoardToTasks(boardData, userDir);
+      const { tasks: t, columns: c } = mapBoardToTasks(boardData, ud);
       resetIdMap();
       setTasks(t);
       setColumns(c);
+      setUserDir(ud);
       setActiveBoardId(boardId);
       setScreen("gantt");
     } catch (err) {
@@ -112,10 +123,10 @@ export default function App(): React.JSX.Element {
     }
   }
 
-  // ─── SVAR data ──────
+  // ─── SVAR data — pass userDir and columns for extra column resolution ──────
   const { tasks: svarTasks, links: svarLinks } = useMemo(
-    () => tasksToSvar(tasks),
-    [tasks],
+    () => tasksToSvar(tasks, userDir, columns),
+    [tasks, userDir, columns],
   );
 
   // ─── SVAR init — wire up event handlers ─────
@@ -131,15 +142,13 @@ export default function App(): React.JSX.Element {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const a = ganttApi as any;
 
-    // Handle task updates (drag, inline edit, editor dialog)
     a.on("update-task", (ev: { id?: number; task?: Record<string, unknown> }) => {
-      const task = ev.task as { id: number; start?: Date; duration?: number; text?: string; progress?: number } | undefined;
+      const task = ev.task as { id: number; start?: Date; end?: Date; duration?: number; text?: string; progress?: number } | undefined;
       if (!task) return;
 
       const change = svarChangeToApp(task);
       if (!change) return;
 
-      // Optimistic local update
       setTasks((prev) =>
         prev.map((t) => {
           if (t.id !== change.appId) return t;
@@ -177,7 +186,6 @@ export default function App(): React.JSX.Element {
       }
     });
 
-    // Open editor dialog on "add-task" button click
     a.on("add-task", (ev: { id?: number }) => {
       if (ev.id) a.exec("show-editor", { id: ev.id });
     });
@@ -217,7 +225,6 @@ export default function App(): React.JSX.Element {
     );
   }
 
-  // ─── Render: Pick Board ─────
   if (screen === "pickBoard") {
     return (
       <WillowDark>

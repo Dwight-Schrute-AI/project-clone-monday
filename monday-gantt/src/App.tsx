@@ -259,14 +259,27 @@ export default function App(): React.JSX.Element {
 
   // ─── Gantt screen ─────
 
-  // Debug: log what we're passing to SVAR
-  useEffect(() => {
-    if (screen === "gantt") {
-      console.log("[SVAR DATA] tasks:", svarTasks.length, "links:", svarLinks.length);
-      console.log("[SVAR DATA] first 3 tasks:", JSON.stringify(svarTasks.slice(0, 3), (_, v) => v instanceof Date ? v.toISOString() : v, 2));
-      console.log("[SVAR DATA] first 3 links:", svarLinks.slice(0, 3));
-    }
-  }, [screen, svarTasks, svarLinks]);
+  // Hardcoded demo data to test SVAR works at all
+  const DEMO_TASKS = [
+    { id: 1, text: "Project", progress: 50, parent: 0, type: "summary", open: true },
+    { id: 10, text: "Task A", start: new Date(2026, 2, 1), duration: 5, progress: 80, parent: 1, type: "task" },
+    { id: 11, text: "Task B", start: new Date(2026, 2, 8), duration: 3, progress: 20, parent: 1, type: "task" },
+    { id: 12, text: "Milestone", start: new Date(2026, 2, 12), progress: 0, parent: 1, type: "milestone" },
+  ];
+  const DEMO_LINKS = [
+    { id: 1, source: 10, target: 11, type: "e2s" as const },
+  ];
+
+  // Use real data if available, demo data as fallback
+  const useDemoData = svarTasks.length === 0;
+  const ganttTasks = useDemoData ? DEMO_TASKS : svarTasks;
+  const ganttLinks = useDemoData ? DEMO_LINKS : svarLinks;
+
+  // Debug logging
+  console.log(`[GANTT] screen=${screen} realTasks=${String(svarTasks.length)} using=${useDemoData ? "DEMO" : "REAL"}`);
+  if (!useDemoData && svarTasks.length > 0) {
+    console.log("[GANTT] first 3:", JSON.stringify(svarTasks.slice(0, 3), (_, v) => v instanceof Date ? v.toISOString() : (v as unknown), 2));
+  }
 
   return (
     <div style={S.app}>
@@ -279,23 +292,19 @@ export default function App(): React.JSX.Element {
           <option value="week">Week</option>
           <option value="month">Month</option>
         </select>
+        {useDemoData && <span style={{ color: "#fdab3d", fontSize: 12 }}>⚠ Showing demo data (0 real tasks with dates)</span>}
         <div style={{ flex: 1 }} />
         <span style={S.statusDot} /><span style={S.statusText}>{userName} · {tasks.filter((t) => !t.isGroupRow).length} tasks</span>
         <button style={S.btn} onClick={() => { localStorage.removeItem("monday_token"); setScreen("connect"); }}>Disconnect</button>
       </div>
       <div style={S.ganttWrap}>
         <GanttErrorBoundary>
-          {svarTasks.length > 0 ? (
-            <Gantt
-              tasks={svarTasks}
-              links={svarLinks}
-              scales={SCALES[zoom]}
-              columns={GANTT_COLUMNS}
-              init={handleInit}
-            />
-          ) : (
-            <div style={{ padding: 24, color: "#9ca3af" }}>No tasks with dates to display</div>
-          )}
+          <Gantt
+            tasks={ganttTasks}
+            links={ganttLinks}
+            scales={SCALES[zoom]}
+            columns={GANTT_COLUMNS}
+          />
         </GanttErrorBoundary>
       </div>
     </div>

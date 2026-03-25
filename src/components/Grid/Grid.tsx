@@ -20,6 +20,7 @@ export function Grid({ scrollContainerRef }: GridProps): React.JSX.Element {
   const { state, dispatch } = useAppContext();
   const bodyRef = useRef<HTMLDivElement>(null);
   const headerRef = useRef<HTMLDivElement>(null);
+  const summaryRef = useRef<HTMLDivElement>(null);
 
   const visibleTasks = useMemo(
     () => selectVisibleTasks(state),
@@ -57,8 +58,9 @@ export function Grid({ scrollContainerRef }: GridProps): React.JSX.Element {
     if (!body) return;
 
     function handleScroll(): void {
-      if (headerRef.current && body) {
-        headerRef.current.scrollLeft = body.scrollLeft;
+      if (body) {
+        if (headerRef.current) headerRef.current.scrollLeft = body.scrollLeft;
+        if (summaryRef.current) summaryRef.current.scrollLeft = body.scrollLeft;
       }
     }
 
@@ -219,7 +221,7 @@ export function Grid({ scrollContainerRef }: GridProps): React.JSX.Element {
       </div>
 
       {aggregates.size > 0 && (
-        <div className={styles.summaryRow}>
+        <div className={styles.summaryRow} ref={summaryRef}>
           {state.columns.map((col) => {
             const w = columnWidths.get(col.key) ?? col.width;
             const agg = aggregates.get(col.key);

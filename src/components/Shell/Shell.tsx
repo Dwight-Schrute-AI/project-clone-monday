@@ -5,7 +5,8 @@ import type { ReactNode, ChangeEvent } from "react";
 import { useAppContext } from "../../state/AppContext";
 import {
   themeToggled, boardDataLoaded, usersLoaded, logAdded,
-  ganttZoomChanged, allGroupsCollapsed, allGroupsExpanded, departmentFilterSet,
+  ganttZoomChanged, allGroupsCollapsed, allGroupsExpanded,
+  allItemsCollapsed, allItemsExpanded, departmentFilterSet,
 } from "../../state/actions";
 import { selectDepartments } from "../../state/selectors";
 import { fetchBoardData, fetchUsers } from "../../services/mondayApi";
@@ -68,12 +69,16 @@ export function Shell({ children }: ShellProps): React.JSX.Element {
     }
   }
 
-  function handleCollapseAll(): void {
-    dispatch(allGroupsCollapsed());
-  }
-
-  function handleExpandAll(): void {
-    dispatch(allGroupsExpanded());
+  function handleCollapseChange(e: ChangeEvent<HTMLSelectElement>): void {
+    const val = e.target.value;
+    switch (val) {
+      case "collapse-groups": dispatch(allGroupsCollapsed()); break;
+      case "expand-all": dispatch(allGroupsExpanded()); break;
+      case "collapse-subitems": dispatch(allItemsCollapsed()); break;
+      case "expand-subitems": dispatch(allItemsExpanded()); break;
+    }
+    // Reset to the label option after action
+    e.target.value = "";
   }
 
   function handleZoomChange(e: ChangeEvent<HTMLInputElement>): void {
@@ -106,7 +111,6 @@ export function Shell({ children }: ShellProps): React.JSX.Element {
   const projectBoards = state.boards.filter((b) => /^T\d+/.test(b.name));
   const boardLoaded = state.tasks.length > 0;
   const zoomLabel = (ZOOM_PRESETS[state.ganttZoom] ?? ZOOM_PRESETS[4]!).label;
-  const isAllCollapsed = state.collapsedGroups.size > 0;
 
   return (
     <div className={styles.shell}>
@@ -131,13 +135,18 @@ export function Shell({ children }: ShellProps): React.JSX.Element {
           )}
           {boardLoaded && (
             <>
-              <button
-                className={styles.toolbarButtonText}
-                onClick={isAllCollapsed ? handleExpandAll : handleCollapseAll}
-                type="button"
+              <select
+                className={styles.filterSelect}
+                defaultValue=""
+                onChange={handleCollapseChange}
+                aria-label="Collapse/Expand"
               >
-                {isAllCollapsed ? "Expand All" : "Collapse All"}
-              </button>
+                <option value="" disabled>View</option>
+                <option value="collapse-groups">Collapse Groups</option>
+                <option value="expand-all">Expand All</option>
+                <option value="collapse-subitems">Collapse Subitems</option>
+                <option value="expand-subitems">Expand Subitems</option>
+              </select>
               {departments.length > 0 && (
                 <select
                   className={styles.filterSelect}

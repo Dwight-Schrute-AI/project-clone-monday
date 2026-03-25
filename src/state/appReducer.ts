@@ -31,6 +31,8 @@ export const initialState: AppState = {
   theme: "light",
   collapsedGroups: new Set(),
   collapsedItems: new Set(),
+  ganttZoom: 4,
+  departmentFilter: null,
   pendingWrites: new Map(),
   log: [],
 };
@@ -256,6 +258,29 @@ export function appReducer(state: AppState, action: AppAction): AppState {
 
     case "THEME_TOGGLED":
       return { ...state, theme: state.theme === "light" ? "dark" : "light" };
+
+    case "GANTT_ZOOM_CHANGED":
+      return { ...state, ganttZoom: action.zoom };
+
+    case "ALL_GROUPS_COLLAPSED": {
+      const allGroupIds = new Set(
+        state.tasks.filter((t) => t.isGroupRow).map((t) => t.groupId),
+      );
+      const allParentIds = new Set<string>();
+      let lastParent: string | null = null;
+      for (const t of state.tasks) {
+        if (t.isGroupRow) { lastParent = null; continue; }
+        if (!t.isSubitem) { lastParent = t.id; continue; }
+        if (lastParent) allParentIds.add(lastParent);
+      }
+      return { ...state, collapsedGroups: allGroupIds, collapsedItems: allParentIds };
+    }
+
+    case "ALL_GROUPS_EXPANDED":
+      return { ...state, collapsedGroups: new Set(), collapsedItems: new Set() };
+
+    case "DEPARTMENT_FILTER_SET":
+      return { ...state, departmentFilter: action.department };
 
     case "LOG_ADDED":
       return { ...state, log: [...state.log, action.entry] };

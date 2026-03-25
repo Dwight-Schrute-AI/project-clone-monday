@@ -4,6 +4,8 @@ import { useState, useMemo, useRef, useCallback, useEffect } from "react";
 import { useAppContext } from "../../state/AppContext";
 import { taskFieldUpdated, taskDeleted, groupsReordered, groupCollapseToggled, itemCollapseToggled } from "../../state/actions";
 import { selectVisibleTasks, selectDisplayIds } from "../../state/selectors";
+import { diffDays } from "../../utils/dateUtils";
+import type { Column, Task } from "../../types";
 import { ColumnHeader } from "./ColumnHeader";
 import { GridRow } from "./GridRow";
 import { ContextMenu } from "../ContextMenu/ContextMenu";
@@ -21,7 +23,7 @@ export function Grid({ scrollContainerRef }: GridProps): React.JSX.Element {
 
   const visibleTasks = useMemo(
     () => selectVisibleTasks(state),
-    [state.tasks, state.collapsedGroups, state.collapsedItems],
+    [state.tasks, state.collapsedGroups, state.collapsedItems, state.departmentFilter, state.columns],
   );
   const displayIds = useMemo(
     () => selectDisplayIds(visibleTasks),
@@ -196,6 +198,12 @@ export function Grid({ scrollContainerRef }: GridProps): React.JSX.Element {
     }
   }
 
+  // Compute aggregate summaries for numeric/date columns
+  const aggregates = useMemo(
+    () => computeAggregates(state.tasks, state.columns),
+    [state.tasks, state.columns],
+  );
+
   return (
     <div className={styles.grid}>
       <div className={styles.headerRow} ref={headerRef}>
@@ -209,6 +217,25 @@ export function Grid({ scrollContainerRef }: GridProps): React.JSX.Element {
           />
         ))}
       </div>
+
+      {aggregates.size > 0 && (
+        <div className={styles.summaryRow}>
+          {state.columns.map((col) => {
+            const w = columnWidths.get(col.key) ?? col.width;
+            const agg = aggregates.get(col.key);
+            const stickyLeft = headerStickyLeft.get(col.key) ?? null;
+            return (
+              <div
+                key={col.key}
+                className={`${styles.summaryCell} ${stickyLeft !== null ? styles.summaryCellFixed : ""}`}
+                style={{ width: w, minWidth: w, ...(stickyLeft !== null ? { left: stickyLeft } : {}) }}
+              >
+                {agg ?? ""}
+              </div>
+            );
+          })}
+        </div>
+      )}
 
       <div className={styles.body} ref={scrollContainerRef ?? bodyRef}>
         <div className={styles.bodyInner}>
@@ -267,4 +294,70 @@ export function Grid({ scrollContainerRef }: GridProps): React.JSX.Element {
       )}
     </div>
   );
+}
+
+/**
+ * Compute aggregate values for the summary row above column headers.
+ * Only processes parent items (not group headers or subitems).
+ */
+function computeAggregates(tasks: Task[], columns: Column[]): Map<string, string> {
+  const result = new Map<string, string>();
+  const parentTasks = tasks.filter((t) => !t.isGroupRow && !t.isSubitem);
+  if (parentTasks.length === 0) return result;
+
+  // Find earliest start and latest end across all parent tasks
+  let minDate: string | null = null;
+  let maxDate: string | null = null;
+  let totalDuration = 0;
+
+  for (const t of parentTasks) {
+    if (t.start && (!minDate || t.start < minDate)) minDate = t.start;
+    if (t.end && (!maxDate || t.end > maxDate)) maxDate = t.end;
+    if (t.start && t.end) {
+      const d = diffDays(t.start, t.end);
+      if (d > 0) totalDuration += d + 1;
+    }
+  }
+
+  for (const col of columns) {
+    // Timeline column: show date range
+    if (col.mondayColType === "timeline") {
+      if (minDate && maxDate) {
+        result.set(col.key, `${minDate} \u2192 ${maxDate}`);
+      }
+      continue;
+    }
+
+    // Duration column (computed): sum of days
+    if (/\bduration\b/i.test(col.label)) {
+      result.set(col.key, String(totalDuration));
+      continue;
+    }
+
+    // Numbers columns: sum values from extras
+    if (col.mondayColType === "numbers" || col.editorType === "number") {
+      // Budget, Effort Spent, Planned Effort — any numeric column gets summed
+      let sum = 0;
+      let hasAny = false;
+      for (const t of parentTasks) {
+        const val = t.extras[col.key];
+        if (typeof val === "number") {
+          sum += val;
+          hasAny = true;
+        } else if (typeof val === "string" && val !== "") {
+          const n = Number(val);
+          if (!isNaN(n)) {
+            sum += n;
+            hasAny = true;
+          }
+        }
+      }
+      if (hasAny) {
+        result.set(col.key, sum % 1 === 0 ? String(sum) : sum.toFixed(2));
+      }
+      continue;
+    }
+  }
+
+  return result;
 }

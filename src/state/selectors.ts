@@ -18,19 +18,50 @@ const GROUP_ROW_HEIGHT = 40;
  * Group header rows remain visible even when collapsed (to allow re-expanding).
  * Parent item rows remain visible even when collapsed (to allow re-expanding).
  */
-export function selectVisibleTasks(state: AppState): Task[] {
-  const { collapsedGroups, collapsedItems } = state;
-  if (collapsedGroups.size === 0 && collapsedItems.size === 0) {
-    return state.tasks;
+/**
+ * Find the column key for "Department" (or similar label) in the column list.
+ */
+export function findDepartmentColKey(columns: AppState["columns"]): string | null {
+  const col = columns.find((c) => /\bdepartment\b/i.test(c.label));
+  return col ? col.key : null;
+}
+
+/**
+ * Get the department value for a task given the department column key.
+ */
+function getTaskDepartment(task: Task, deptColKey: string | null): string {
+  if (!deptColKey) return "";
+  const val = task.extras[deptColKey];
+  return typeof val === "string" ? val : "";
+}
+
+/**
+ * Collect unique department values from all tasks.
+ */
+export function selectDepartments(state: AppState): string[] {
+  const deptKey = findDepartmentColKey(state.columns);
+  if (!deptKey) return [];
+  const set = new Set<string>();
+  for (const t of state.tasks) {
+    if (t.isGroupRow || t.isSubitem) continue;
+    const val = getTaskDepartment(t, deptKey);
+    if (val) set.add(val);
   }
+  return Array.from(set).sort();
+}
+
+export function selectVisibleTasks(state: AppState): Task[] {
+  const { collapsedGroups, collapsedItems, departmentFilter } = state;
+  const deptKey = departmentFilter ? findDepartmentColKey(state.columns) : null;
 
   const result: Task[] = [];
   let currentParentId: string | null = null;
+  let parentVisible = true;
 
   for (const task of state.tasks) {
-    // Group header rows are always visible
     if (task.isGroupRow) {
       currentParentId = null;
+      parentVisible = true;
       result.push(task);
       continue;
     }
@@ -40,14 +71,24 @@ export function selectVisibleTasks(state: AppState): Task[] {
       continue;
     }
 
-    // Track parent items for subitem collapse
     if (!task.isSubitem) {
       currentParentId = task.id;
+
+      // Department filter: hide parent items not matching
+      if (departmentFilter && deptKey) {
+        const dept = getTaskDepartment(task, deptKey);
+        if (dept && dept !== departmentFilter) {
+          parentVisible = false;
+          continue;
+        }
+      }
+      parentVisible = true;
       result.push(task);
       continue;
     }
 
-    // Subitem: hide if parent is collapsed
+    // Subitem: hide if parent is collapsed or filtered out
+    if (!parentVisible) continue;
     if (currentParentId && collapsedItems.has(currentParentId)) {
       continue;
     }
@@ -55,7 +96,21 @@ export function selectVisibleTasks(state: AppState): Task[] {
     result.push(task);
   }
 
+  // Remove empty group headers (groups where all items were filtered out)
+  if (departmentFilter && deptKey) {
+    return removeEmptyGroups(result);
+  }
+
   return result;
+}
+
+function removeEmptyGroups(tasks: Task[]): Task[] {
+  // Mark groups that have at least one non-group child
+  const groupsWithItems = new Set<string>();
+  for (const t of tasks) {
+    if (!t.isGroupRow) groupsWithItems.add(t.groupId);
+  }
+  return tasks.filter((t) => !t.isGroupRow || groupsWithItems.has(t.groupId));
 }
 
 /**

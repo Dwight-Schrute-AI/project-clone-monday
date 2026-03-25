@@ -26,6 +26,8 @@ export interface AppState {
   theme: "light" | "dark";
   collapsedGroups: Set<string>;
   collapsedItems: Set<string>;
+  ganttZoom: number;
+  departmentFilter: string | null;
   pendingWrites: Map<string, PendingWrite>;
   log: LogEntry[];
 }
@@ -55,4 +57,8 @@ export type AppAction =
   | { type: "GROUP_COLLAPSE_TOGGLED"; groupId: string }
   | { type: "ITEM_COLLAPSE_TOGGLED"; taskId: string }
   | { type: "THEME_TOGGLED" }
+  | { type: "GANTT_ZOOM_CHANGED"; zoom: number }
+  | { type: "ALL_GROUPS_COLLAPSED" }
+  | { type: "ALL_GROUPS_EXPANDED" }
+  | { type: "DEPARTMENT_FILTER_SET"; department: string | null }
   | { type: "LOG_ADDED"; entry: LogEntry };

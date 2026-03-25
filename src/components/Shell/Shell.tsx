@@ -112,6 +112,16 @@ export function Shell({ children }: ShellProps): React.JSX.Element {
   const boardLoaded = state.tasks.length > 0;
   const zoomLabel = (ZOOM_PRESETS[state.ganttZoom] ?? ZOOM_PRESETS[4]!).label;
 
+  // Determine collapse state for context-aware menu
+  const groupsCollapsed = state.collapsedGroups.size > 0;
+  const itemsCollapsed = state.collapsedItems.size > 0;
+  const hasSubitems = useMemo(() => {
+    for (const t of state.tasks) {
+      if (t.isSubitem) return true;
+    }
+    return false;
+  }, [state.tasks]);
+
   return (
     <div className={styles.shell}>
       <header className={styles.toolbar}>
@@ -142,10 +152,10 @@ export function Shell({ children }: ShellProps): React.JSX.Element {
                 aria-label="Collapse/Expand"
               >
                 <option value="" disabled>View</option>
-                <option value="collapse-groups">Collapse Groups</option>
-                <option value="expand-all">Expand All</option>
-                <option value="collapse-subitems">Collapse Subitems</option>
-                <option value="expand-subitems">Expand Subitems</option>
+                {!groupsCollapsed && <option value="collapse-groups">Collapse Tasks</option>}
+                {groupsCollapsed && <option value="expand-all">Expand Tasks</option>}
+                {hasSubitems && !itemsCollapsed && <option value="collapse-subitems">Collapse Sub-tasks</option>}
+                {hasSubitems && itemsCollapsed && <option value="expand-subitems">Expand Sub-tasks</option>}
               </select>
               {departments.length > 0 && (
                 <select

@@ -1,6 +1,6 @@
 /** @module Gantt — container: time header, bar area, today line, dependency arrows */
 
-import { useMemo, useRef, useState, useCallback } from "react";
+import { useMemo, useRef } from "react";
 import { useAppContext } from "../../state/AppContext";
 import { selectVisibleTasks, selectRowGeometry, selectDependencyGraph } from "../../state/selectors";
 import type { RowGeometry } from "../../state/selectors";
@@ -11,8 +11,8 @@ import { GanttBar } from "./GanttBar";
 import { GanttArrows } from "./GanttArrows";
 import styles from "./Gantt.module.css";
 
-/** Zoom presets: label, dayWidth in pixels */
-const ZOOM_PRESETS = [
+/** Zoom presets: dayWidth in pixels, exported for Shell toolbar */
+export const ZOOM_PRESETS = [
   { label: "Year", dayWidth: 2 },
   { label: "Quarter", dayWidth: 5 },
   { label: "Month", dayWidth: 10 },
@@ -20,7 +20,6 @@ const ZOOM_PRESETS = [
   { label: "Day", dayWidth: 30 },
 ] as const;
 
-const DEFAULT_ZOOM = 4; // "Day" (index into ZOOM_PRESETS)
 const TIMELINE_PAD_DAYS = 14;
 
 interface GroupRange {
@@ -36,19 +35,13 @@ interface GanttProps {
 export function Gantt({ scrollContainerRef }: GanttProps): React.JSX.Element {
   const { state } = useAppContext();
   const barAreaRef = useRef<HTMLDivElement>(null);
-  const [zoomIndex, setZoomIndex] = useState(DEFAULT_ZOOM);
 
-  const preset = ZOOM_PRESETS[zoomIndex] ?? ZOOM_PRESETS[DEFAULT_ZOOM]!;
+  const preset = ZOOM_PRESETS[state.ganttZoom] ?? ZOOM_PRESETS[4]!;
   const dayWidth = preset.dayWidth;
-  const zoomLabel = preset.label;
-
-  const handleZoomChange = useCallback(function handleZoomChange(e: React.ChangeEvent<HTMLInputElement>): void {
-    setZoomIndex(Number(e.target.value));
-  }, []);
 
   const visibleTasks = useMemo(
     () => selectVisibleTasks(state),
-    [state.tasks, state.collapsedGroups, state.collapsedItems],
+    [state.tasks, state.collapsedGroups, state.collapsedItems, state.departmentFilter, state.columns],
   );
 
   const rowGeometry = useMemo(
@@ -96,27 +89,12 @@ export function Gantt({ scrollContainerRef }: GanttProps): React.JSX.Element {
 
   return (
     <div className={styles.gantt}>
-      <div className={styles.ganttToolbar}>
-        <TimeHeader
-          timelineStart={tStart}
-          timelineEnd={tEnd}
-          dayWidth={dayWidth}
-          showDayNumbers={showDayNumbers}
-        />
-        <div className={styles.zoomControl}>
-          <span className={styles.zoomLabel}>{zoomLabel}</span>
-          <input
-            type="range"
-            className={styles.zoomSlider}
-            min="0"
-            max={String(ZOOM_PRESETS.length - 1)}
-            step="1"
-            value={zoomIndex}
-            onChange={handleZoomChange}
-            aria-label="Gantt zoom level"
-          />
-        </div>
-      </div>
+      <TimeHeader
+        timelineStart={tStart}
+        timelineEnd={tEnd}
+        dayWidth={dayWidth}
+        showDayNumbers={showDayNumbers}
+      />
 
       <div className={styles.barArea} ref={scrollContainerRef ?? barAreaRef}>
         <div

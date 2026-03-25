@@ -12,26 +12,31 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  height: 44px;
-  padding: 0 16px;
+  height: 40px;
+  padding: 0 12px;
   background: var(--bg-surface);
   border-bottom: 1px solid var(--border);
+  gap: 8px;
 }
 
 .toolbarLeft {
   display: flex;
   align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
 }
 
 .toolbarRight {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 6px;
+  flex-shrink: 0;
 }
 
 .title {
   margin: 0;
-  font-size: 15px;
+  font-size: 14px;
   font-weight: 600;
   color: var(--text-primary);
 }
@@ -40,14 +45,15 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
+  width: 30px;
+  height: 30px;
   border: none;
   border-radius: 4px;
   background: none;
-  font-size: 18px;
+  font-size: 16px;
   color: var(--text-secondary);
   cursor: pointer;
+  flex-shrink: 0;
 }
 
 .toolbarButton:hover {
@@ -55,16 +61,38 @@
   color: var(--text-primary);
 }
 
+.toolbarButtonText {
+  display: flex;
+  align-items: center;
+  height: 26px;
+  padding: 0 8px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: none;
+  font-size: 11px;
+  font-family: inherit;
+  color: var(--text-secondary);
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.toolbarButtonText:hover {
+  background: var(--row-hover);
+  color: var(--text-primary);
+  border-color: var(--accent);
+}
+
 .boardSelect {
-  font-size: 15px;
+  font-size: 13px;
   font-weight: 600;
   color: var(--text-primary);
   background: var(--bg-surface);
   border: 1px solid var(--border);
   border-radius: 4px;
-  padding: 4px 8px;
+  padding: 3px 6px;
   cursor: pointer;
-  max-width: 350px;
+  max-width: 300px;
   overflow: hidden;
   text-overflow: ellipsis;
 }
@@ -78,10 +106,47 @@
   cursor: wait;
 }
 
-.loadingIndicator {
-  font-size: 12px;
+.filterSelect {
+  font-size: 11px;
+  color: var(--text-primary);
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 3px 6px;
+  cursor: pointer;
+  max-width: 180px;
+  flex-shrink: 0;
+}
+
+.filterSelect:hover {
+  border-color: var(--accent);
+}
+
+.zoomControl {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.zoomLabel {
+  font-size: 10px;
+  font-weight: 600;
   color: var(--text-secondary);
-  margin-right: 8px;
+  min-width: 36px;
+  text-align: center;
+}
+
+.zoomSlider {
+  width: 70px;
+  height: 14px;
+  cursor: pointer;
+  accent-color: var(--accent);
+}
+
+.loadingIndicator {
+  font-size: 11px;
+  color: var(--text-secondary);
 }
 
 .content {

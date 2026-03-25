@@ -1,12 +1,17 @@
 /** @module Shell — layout frame: toolbar, content area, status bar */
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import type { ReactNode, ChangeEvent } from "react";
 import { useAppContext } from "../../state/AppContext";
-import { themeToggled, boardDataLoaded, usersLoaded, logAdded } from "../../state/actions";
+import {
+  themeToggled, boardDataLoaded, usersLoaded, logAdded,
+  ganttZoomChanged, allGroupsCollapsed, allGroupsExpanded, departmentFilterSet,
+} from "../../state/actions";
+import { selectDepartments } from "../../state/selectors";
 import { fetchBoardData, fetchUsers } from "../../services/mondayApi";
 import { mapBoardToTasks } from "../../services/dataMapper";
 import { logger } from "../../services/logger";
+import { ZOOM_PRESETS } from "../Gantt/Gantt";
 import { StatusBar } from "../common/StatusBar";
 import { LogDrawer } from "../common/LogDrawer";
 import { SettingsDialog } from "../Settings/SettingsDialog";
@@ -63,6 +68,28 @@ export function Shell({ children }: ShellProps): React.JSX.Element {
     }
   }
 
+  function handleCollapseAll(): void {
+    dispatch(allGroupsCollapsed());
+  }
+
+  function handleExpandAll(): void {
+    dispatch(allGroupsExpanded());
+  }
+
+  function handleZoomChange(e: ChangeEvent<HTMLInputElement>): void {
+    dispatch(ganttZoomChanged(Number(e.target.value)));
+  }
+
+  function handleDepartmentChange(e: ChangeEvent<HTMLSelectElement>): void {
+    const val = e.target.value;
+    dispatch(departmentFilterSet(val === "" ? null : val));
+  }
+
+  const departments = useMemo(
+    () => selectDepartments(state),
+    [state.tasks, state.columns],
+  );
+
   const taskCount = state.tasks.filter((t) => !t.isGroupRow).length;
   const pendingCount = state.pendingWrites.size;
   const errorCount = state.log.filter((e) => e.level === "error").length;
@@ -76,8 +103,10 @@ export function Shell({ children }: ShellProps): React.JSX.Element {
   }
 
   const activeBoardName = state.boards.find((b) => b.id === state.activeBoardId)?.name;
-  // Only show project boards matching "T" followed by digits (e.g. T26003, T17032)
   const projectBoards = state.boards.filter((b) => /^T\d+/.test(b.name));
+  const boardLoaded = state.tasks.length > 0;
+  const zoomLabel = (ZOOM_PRESETS[state.ganttZoom] ?? ZOOM_PRESETS[4]!).label;
+  const isAllCollapsed = state.collapsedGroups.size > 0;
 
   return (
     <div className={styles.shell}>
@@ -100,9 +129,48 @@ export function Shell({ children }: ShellProps): React.JSX.Element {
           ) : (
             <h1 className={styles.title}>{activeBoardName ?? "monday-project"}</h1>
           )}
+          {boardLoaded && (
+            <>
+              <button
+                className={styles.toolbarButtonText}
+                onClick={isAllCollapsed ? handleExpandAll : handleCollapseAll}
+                type="button"
+              >
+                {isAllCollapsed ? "Expand All" : "Collapse All"}
+              </button>
+              {departments.length > 0 && (
+                <select
+                  className={styles.filterSelect}
+                  value={state.departmentFilter ?? ""}
+                  onChange={handleDepartmentChange}
+                  aria-label="Filter by department"
+                >
+                  <option value="">All Departments</option>
+                  {departments.map((d) => (
+                    <option key={d} value={d}>{d}</option>
+                  ))}
+                </select>
+              )}
+            </>
+          )}
         </div>
         <div className={styles.toolbarRight}>
           {loadingBoard && <span className={styles.loadingIndicator}>Loading…</span>}
+          {boardLoaded && (
+            <div className={styles.zoomControl}>
+              <span className={styles.zoomLabel}>{zoomLabel}</span>
+              <input
+                type="range"
+                className={styles.zoomSlider}
+                min="0"
+                max={String(ZOOM_PRESETS.length - 1)}
+                step="1"
+                value={state.ganttZoom}
+                onChange={handleZoomChange}
+                aria-label="Gantt zoom level"
+              />
+            </div>
+          )}
           <button
             className={styles.toolbarButton}
             onClick={handleToggleTheme}

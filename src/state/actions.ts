@@ -87,6 +87,22 @@ export function themeToggled(): AppAction {
   return { type: "THEME_TOGGLED" };
 }
 
+export function ganttZoomChanged(zoom: number): AppAction {
+  return { type: "GANTT_ZOOM_CHANGED", zoom };
+}
+
+export function allGroupsCollapsed(): AppAction {
+  return { type: "ALL_GROUPS_COLLAPSED" };
+}
+
+export function allGroupsExpanded(): AppAction {
+  return { type: "ALL_GROUPS_EXPANDED" };
+}
+
+export function departmentFilterSet(department: string | null): AppAction {
+  return { type: "DEPARTMENT_FILTER_SET", department };
+}
+
 export function logAdded(entry: LogEntry): AppAction {
   return { type: "LOG_ADDED", entry };
 }

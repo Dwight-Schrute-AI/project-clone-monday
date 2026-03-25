@@ -9,6 +9,7 @@ import type {
   MondayRawColumnValue,
   MondayColumnType,
   MondayColumnValue,
+  MondayGroup,
   ColumnOption,
 } from "../types";
 import { logger } from "./logger";
@@ -583,15 +584,52 @@ export function mapBoardToTasks(
     });
   }
 
-  // Build task list with group headers
+  // Build task list with group headers, sorted by earliest timeline date ascending
   const tasks: Task[] = [];
-  const sortedGroups = [...board.groups].sort((a, b) =>
-    a.position.localeCompare(b.position)
-  );
 
-  for (const group of sortedGroups) {
+  // First pass: map items per group to compute earliest date for sorting
+  interface GroupData {
+    group: MondayGroup;
+    groupId: string;
+    parentTasks: Array<{ parent: Task; children: Task[] }>;
+    earliestDate: string | null;
+  }
+  const groupDataList: GroupData[] = [];
+
+  for (const group of board.groups) {
     const groupId = `group-${group.id}`;
+    const groupItems = board.items_page.items.filter(
+      (item) => item.group.id === group.id
+    );
 
+    const parentTasks: Array<{ parent: Task; children: Task[] }> = [];
+    let earliestDate: string | null = null;
+
+    for (const item of groupItems) {
+      const parent = mapItem(item, board.id, groupId, group.id, 0, false, special);
+      const children = item.subitems.map((sub) =>
+        mapItem(sub, board.id, groupId, group.id, 1, true, special)
+      );
+      parentTasks.push({ parent, children });
+
+      const date = parent.start ?? parent.end;
+      if (date && (!earliestDate || date < earliestDate)) {
+        earliestDate = date;
+      }
+    }
+
+    groupDataList.push({ group, groupId, parentTasks, earliestDate });
+  }
+
+  // Sort groups by earliest date ascending (nulls last)
+  groupDataList.sort((a, b) => {
+    if (!a.earliestDate && !b.earliestDate) return 0;
+    if (!a.earliestDate) return 1;
+    if (!b.earliestDate) return -1;
+    return a.earliestDate.localeCompare(b.earliestDate);
+  });
+
+  for (const { group, groupId, parentTasks } of groupDataList) {
     tasks.push({
       id: groupId,
       mondayId: "",
@@ -612,20 +650,6 @@ export function mapBoardToTasks(
       extras: { _groupColor: group.color },
       mondayColMap: {},
     });
-
-    const groupItems = board.items_page.items.filter(
-      (item) => item.group.id === group.id
-    );
-
-    // Map parent items with their subitems
-    const parentTasks: Array<{ parent: Task; children: Task[] }> = [];
-    for (const item of groupItems) {
-      const parent = mapItem(item, board.id, groupId, group.id, 0, false, special);
-      const children = item.subitems.map((sub) =>
-        mapItem(sub, board.id, groupId, group.id, 1, true, special)
-      );
-      parentTasks.push({ parent, children });
-    }
 
     // Sort parent items by start date ascending (nulls last)
     parentTasks.sort((a, b) => {

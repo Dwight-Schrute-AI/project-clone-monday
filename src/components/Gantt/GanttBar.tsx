@@ -28,7 +28,10 @@ export function GanttBar({
   // Summary mode for group rows
   if (task.isGroupRow) {
     if (!groupRange) return null;
-    return renderSummary(groupRange, timelineStart, dayWidth, y, rowHeight);
+    const groupColor = typeof task.extras["_groupColor"] === "string"
+      ? task.extras["_groupColor"]
+      : null;
+    return renderSummary(groupRange, timelineStart, dayWidth, y, rowHeight, groupColor);
   }
 
   const start = task.start;
@@ -98,15 +101,20 @@ function renderMilestone(
 function renderSummary(
   range: { start: string; end: string; pct: number },
   timelineStart: string, dayWidth: number, y: number, rowHeight: number,
+  groupColor: string | null,
 ): React.JSX.Element {
   const left = diffDays(timelineStart, range.start) * dayWidth;
   const width = Math.max(diffDays(range.start, range.end) * dayWidth, dayWidth);
   const top = y + (rowHeight - SUMMARY_HEIGHT) / 2;
+  const barStyle: React.CSSProperties = {
+    left, top, width,
+    ...(groupColor ? { background: groupColor } : {}),
+  };
 
   return (
     <div
       className={styles.summaryBar}
-      style={{ left, top, width }}
+      style={barStyle}
     >
       {range.pct > 0 && (
         <div className={styles.summaryBarFill} style={{ width: `${String(range.pct)}%` }} />

@@ -82,6 +82,17 @@
   pointer-events: none;
 }
 
+/* --- Group Row Background --- */
+
+.groupRowBg {
+  position: absolute;
+  left: 0;
+  right: 0;
+  width: 100%;
+  border-left: 3px solid transparent;
+  pointer-events: none;
+}
+
 /* --- Bars --- */
 
 .bar {

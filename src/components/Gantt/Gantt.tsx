@@ -116,6 +116,22 @@ export function Gantt({ scrollContainerRef }: GanttProps): React.JSX.Element {
             <div className={styles.todayLine} style={{ left: todayX }} />
           )}
 
+          {/* Group row tinted backgrounds */}
+          {visibleTasks.map((task) => {
+            if (!task.isGroupRow) return null;
+            const rg = rowGeometryMap.get(task.id);
+            if (!rg) return null;
+            const color = typeof task.extras["_groupColor"] === "string"
+              ? task.extras["_groupColor"] : "var(--text-secondary)";
+            return (
+              <div
+                key={`gbg-${task.id}`}
+                className={styles.groupRowBg}
+                style={{ top: rg.y, height: rg.height, borderLeftColor: color, background: `${color}11` }}
+              />
+            );
+          })}
+
           {visibleTasks.map((task) => {
             const rg = rowGeometryMap.get(task.id);
             if (!rg) return null;

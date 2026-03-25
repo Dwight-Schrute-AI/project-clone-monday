@@ -99,6 +99,14 @@ export function allGroupsExpanded(): AppAction {
   return { type: "ALL_GROUPS_EXPANDED" };
 }
 
+export function allItemsCollapsed(): AppAction {
+  return { type: "ALL_ITEMS_COLLAPSED" };
+}
+
+export function allItemsExpanded(): AppAction {
+  return { type: "ALL_ITEMS_EXPANDED" };
+}
+
 export function departmentFilterSet(department: string | null): AppAction {
   return { type: "DEPARTMENT_FILTER_SET", department };
 }

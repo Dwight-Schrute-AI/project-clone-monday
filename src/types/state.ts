@@ -60,5 +60,7 @@ export type AppAction =
   | { type: "GANTT_ZOOM_CHANGED"; zoom: number }
   | { type: "ALL_GROUPS_COLLAPSED" }
   | { type: "ALL_GROUPS_EXPANDED" }
+  | { type: "ALL_ITEMS_COLLAPSED" }
+  | { type: "ALL_ITEMS_EXPANDED" }
   | { type: "DEPARTMENT_FILTER_SET"; department: string | null }
   | { type: "LOG_ADDED"; entry: LogEntry };

@@ -279,6 +279,20 @@ export function appReducer(state: AppState, action: AppAction): AppState {
     case "ALL_GROUPS_EXPANDED":
       return { ...state, collapsedGroups: new Set(), collapsedItems: new Set() };
 
+    case "ALL_ITEMS_COLLAPSED": {
+      const allParentIds = new Set<string>();
+      let lastParent: string | null = null;
+      for (const t of state.tasks) {
+        if (t.isGroupRow) { lastParent = null; continue; }
+        if (!t.isSubitem) { lastParent = t.id; continue; }
+        if (lastParent) allParentIds.add(lastParent);
+      }
+      return { ...state, collapsedItems: allParentIds };
+    }
+
+    case "ALL_ITEMS_EXPANDED":
+      return { ...state, collapsedItems: new Set() };
+
     case "DEPARTMENT_FILTER_SET":
       return { ...state, departmentFilter: action.department };
 

@@ -44,9 +44,10 @@ function diffDays(a: string, b: string): number {
 /**
  * Convert app Task[] → SVAR {tasks, links}.
  *
- * Per SVAR quickstart: tasks can have start + end + duration.
- * Summaries are fine AS LONG AS they have start/end/duration.
- * Tasks without dates are skipped.
+ * NO type:"summary" — SVAR's tree builder crashes when summary children
+ * get skipped (dateless). Everything is type:"task" or type:"milestone".
+ * Groups are rendered as regular tasks spanning their date range.
+ * Hierarchy is FLAT (parent: 0 for all) to avoid tree-builder issues.
  */
 export function tasksToSvar(appTasks: Task[]): {
   tasks: Array<Record<string, unknown>>;
@@ -56,93 +57,60 @@ export function tasksToSvar(appTasks: Task[]): {
   const links: SvarLink[] = [];
   let linkId = 1;
 
-  // Assign numeric IDs
   for (const t of appTasks) numId(t.id);
 
-  // Collect group numeric IDs and compute group date ranges
-  const groupNums = new Map<string, number>();
+  // Compute group date ranges for group bars
   const groupRanges = new Map<string, { min: string; max: string }>();
   for (const t of appTasks) {
-    if (t.isGroupRow) {
-      groupNums.set(t.groupId, numId(t.id));
-      continue;
-    }
+    if (t.isGroupRow) continue;
     for (const d of [t.start, t.end]) {
       if (!d) continue;
       const r = groupRanges.get(t.groupId);
-      if (!r) { groupRanges.set(t.groupId, { min: d, max: d }); }
+      if (!r) groupRanges.set(t.groupId, { min: d, max: d });
       else { if (d < r.min) r.min = d; if (d > r.max) r.max = d; }
     }
   }
-
-  // Find parent tasks with subitems
-  const hasChildren = new Set<string>();
-  for (let i = 0; i < appTasks.length; i++) {
-    if (appTasks[i]!.isSubitem) {
-      for (let j = i - 1; j >= 0; j--) {
-        const p = appTasks[j]!;
-        if (!p.isSubitem && !p.isGroupRow) { hasChildren.add(p.id); break; }
-      }
-    }
-  }
-
-  let curParentNum = 0;
 
   for (const t of appTasks) {
     const id = numId(t.id);
 
     if (t.isGroupRow) {
-      // Group → summary with computed date range (SVAR requires dates on summaries)
       const range = groupRanges.get(t.groupId);
-      if (!range) { curParentNum = 0; continue; } // skip empty groups
-      const dur = diffDays(range.min, range.max);
+      if (!range) continue;
       tasks.push({
-        id, text: t.name, start: toDate(range.min), end: toDate(range.max),
-        duration: dur, progress: 0, parent: 0, type: "summary", open: true,
+        id, text: t.name,
+        start: toDate(range.min), end: toDate(range.max),
+        duration: diffDays(range.min, range.max),
+        progress: 0, parent: 0, type: "task",
       });
-      curParentNum = 0;
       continue;
     }
 
-    // Determine parent
-    let parent = groupNums.get(t.groupId) ?? 0;
-    if (t.isSubitem && curParentNum > 0) parent = curParentNum;
-    if (!t.isSubitem) curParentNum = id;
+    // Skip dateless tasks
+    if (!t.start && !t.end) continue;
 
-    if (t.start && t.end) {
-      const dur = diffDays(t.start, t.end);
-      const isSummary = hasChildren.has(t.id);
+    if (t.start && t.end && t.start !== t.end) {
       tasks.push({
-        id, text: t.name, start: toDate(t.start), end: toDate(t.end),
-        duration: dur, progress: t.pct, parent,
-        type: isSummary ? "summary" : "task",
-        ...(isSummary ? { open: true } : {}),
-      });
-    } else if (t.start || t.end) {
-      const d = (t.start ?? t.end)!;
-      tasks.push({
-        id, text: t.name, start: toDate(d), end: toDate(d),
-        duration: 0, progress: t.pct, parent, type: "milestone",
+        id, text: t.name,
+        start: toDate(t.start), end: toDate(t.end),
+        duration: diffDays(t.start, t.end),
+        progress: t.pct, parent: 0, type: "task",
       });
     } else {
-      // No dates — skip
-      continue;
+      const d = (t.start ?? t.end)!;
+      tasks.push({
+        id, text: t.name,
+        start: toDate(d), end: toDate(d),
+        duration: 0, progress: t.pct, parent: 0, type: "milestone",
+      });
     }
 
-    // Dependencies → links
     for (const pred of t.predecessors) {
       const src = idMap.get(pred);
       if (src !== undefined) {
         links.push({ id: linkId++, source: src, target: id, type: "e2s" });
       }
     }
-  }
-
-  // Validate: orphaned children (parent skipped) → promote to root
-  const taskIds = new Set(tasks.map((t) => t["id"] as number));
-  for (const t of tasks) {
-    const p = t["parent"] as number;
-    if (p !== 0 && !taskIds.has(p)) t["parent"] = 0;
   }
 
   return { tasks, links };

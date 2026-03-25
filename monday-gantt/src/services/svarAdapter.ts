@@ -2,7 +2,6 @@
 
 import type { Task } from "../types";
 
-/** SVAR Gantt link (dependency) shape */
 export interface SvarLink {
   id: number;
   source: number;
@@ -10,12 +9,11 @@ export interface SvarLink {
   type: "e2s" | "s2s" | "s2e" | "e2e";
 }
 
-// Stable numeric ID mapping: app task ID string → numeric ID for SVAR
 const idMap = new Map<string, number>();
 const reverseMap = new Map<number, string>();
 let nextId = 1;
 
-function toNumericId(appId: string): number {
+function numId(appId: string): number {
   let n = idMap.get(appId);
   if (n !== undefined) return n;
   n = nextId++;
@@ -24,206 +22,127 @@ function toNumericId(appId: string): number {
   return n;
 }
 
-/** Clear the ID map (call when switching boards) */
 export function resetIdMap(): void {
   idMap.clear();
   reverseMap.clear();
   nextId = 1;
 }
 
-/** Reverse lookup: numeric SVAR ID → app task ID string */
-export function toAppId(numericId: number): string | undefined {
-  return reverseMap.get(numericId);
+export function toAppId(svarId: number): string | undefined {
+  return reverseMap.get(svarId);
 }
 
-/** Parse ISO date string to Date object */
 function toDate(iso: string): Date {
   const [y, m, d] = iso.split("-").map(Number);
   return new Date(y!, m! - 1, d!);
 }
 
-/** Compute duration in days between two ISO date strings */
-function daysBetween(start: string, end: string): number {
-  const s = toDate(start);
-  const e = toDate(end);
-  return Math.max(1, Math.round((e.getTime() - s.getTime()) / 86_400_000));
+function diffDays(a: string, b: string): number {
+  return Math.max(1, Math.round((toDate(b).getTime() - toDate(a).getTime()) / 86_400_000));
 }
 
 /**
- * Convert our Task[] to SVAR Gantt {tasks, links}.
- *
- * SVAR data format (from their demos):
- * - Regular tasks: { id, text, start: Date, duration: number, progress, parent, type: "task" }
- * - Summary tasks: { id, text, progress, parent: 0, type: "summary", open: true }
- *   (NO start/duration — SVAR computes from children)
- * - Milestones: { id, text, start: Date, progress, parent, type: "milestone" }
- *   (NO duration)
- * - Links: { id, source, target, type: "e2s" }
+ * Convert app Task[] → SVAR {tasks, links}.
+ * Skips tasks with no dates entirely (subitems without dates become noise).
+ * Groups become summary rows. Dependencies become links.
  */
 export function tasksToSvar(appTasks: Task[]): {
   tasks: Array<Record<string, unknown>>;
   links: SvarLink[];
 } {
-  const svarTasks: Array<Record<string, unknown>> = [];
-  const svarLinks: SvarLink[] = [];
+  const tasks: Array<Record<string, unknown>> = [];
+  const links: SvarLink[] = [];
   let linkId = 1;
 
-  // First pass: assign numeric IDs
+  // Assign numeric IDs to everything first
+  for (const t of appTasks) numId(t.id);
+
+  // Collect group numeric IDs
+  const groupNums = new Map<string, number>();
   for (const t of appTasks) {
-    toNumericId(t.id);
+    if (t.isGroupRow) groupNums.set(t.groupId, numId(t.id));
   }
 
-  // Map group IDs to their numeric SVAR IDs
-  const groupNumericIds = new Map<string, number>();
-  for (const t of appTasks) {
-    if (t.isGroupRow) {
-      groupNumericIds.set(t.groupId, toNumericId(t.id));
-    }
-  }
-
-  // Determine which non-group tasks have children (subitems)
-  const parentIdsWithChildren = new Set<string>();
+  // Find which parent tasks have subitems
+  const hasChildren = new Set<string>();
   for (let i = 0; i < appTasks.length; i++) {
-    const t = appTasks[i]!;
-    if (t.isSubitem) {
+    if (appTasks[i]!.isSubitem) {
       for (let j = i - 1; j >= 0; j--) {
-        const prev = appTasks[j]!;
-        if (!prev.isSubitem && !prev.isGroupRow) {
-          parentIdsWithChildren.add(prev.id);
-          break;
-        }
+        const p = appTasks[j]!;
+        if (!p.isSubitem && !p.isGroupRow) { hasChildren.add(p.id); break; }
       }
     }
   }
 
-  // Track current parent item for subitems
-  let currentParentNumId = 0;
+  let curParentNum = 0;
 
   for (const t of appTasks) {
-    const numId = toNumericId(t.id);
+    const id = numId(t.id);
 
+    // Group row → summary (SVAR computes dates from children)
     if (t.isGroupRow) {
-      // Summary task at root — no start/duration, SVAR computes from children
-      svarTasks.push({
-        id: numId,
-        text: t.name,
-        progress: 0,
-        parent: 0,
-        type: "summary",
-        open: true,
-      });
-      currentParentNumId = 0;
+      tasks.push({ id, text: t.name, progress: 0, parent: 0, type: "summary", open: true });
+      curParentNum = 0;
       continue;
     }
 
-    const effectiveStart = t.start ?? t.end;
-    const effectiveEnd = t.end ?? t.start;
+    // Determine parent numeric ID
+    let parent = groupNums.get(t.groupId) ?? 0;
+    if (t.isSubitem && curParentNum > 0) parent = curParentNum;
+    if (!t.isSubitem) curParentNum = id;
 
-    // Determine parent
-    let parentId = groupNumericIds.get(t.groupId) ?? 0;
-    if (t.isSubitem && currentParentNumId > 0) {
-      parentId = currentParentNumId;
-    }
-    if (!t.isSubitem) {
-      currentParentNumId = numId;
-    }
-
-    // Parent items with subitems → summary (SVAR computes dates from children)
-    if (parentIdsWithChildren.has(t.id)) {
-      svarTasks.push({
-        id: numId,
-        text: t.name,
-        progress: t.pct,
-        parent: parentId,
-        type: "summary",
-        open: true,
-      });
-    } else if (!effectiveStart) {
-      // No dates at all — milestone at today
-      svarTasks.push({
-        id: numId,
-        text: t.name,
-        start: new Date(),
-        progress: t.pct,
-        parent: parentId,
-        type: "milestone",
-      });
-    } else if (!effectiveEnd || effectiveStart === effectiveEnd) {
-      // Single date — milestone
-      svarTasks.push({
-        id: numId,
-        text: t.name,
-        start: toDate(effectiveStart),
-        progress: t.pct,
-        parent: parentId,
-        type: "milestone",
-      });
+    // Parent with subitems → summary
+    if (hasChildren.has(t.id)) {
+      // If it has its own dates, pass them so SVAR has something to show
+      if (t.start && t.end) {
+        tasks.push({ id, text: t.name, start: toDate(t.start), duration: diffDays(t.start, t.end), progress: t.pct, parent, type: "summary", open: true });
+      } else {
+        tasks.push({ id, text: t.name, progress: t.pct, parent, type: "summary", open: true });
+      }
+    } else if (t.start && t.end && t.start !== t.end) {
+      // Normal task with date range
+      tasks.push({ id, text: t.name, start: toDate(t.start), duration: diffDays(t.start, t.end), progress: t.pct, parent, type: "task" });
+    } else if (t.start || t.end) {
+      // Single date → milestone
+      tasks.push({ id, text: t.name, start: toDate((t.start ?? t.end)!), progress: t.pct, parent, type: "milestone" });
     } else {
-      // Normal task with start + duration
-      svarTasks.push({
-        id: numId,
-        text: t.name,
-        start: toDate(effectiveStart),
-        duration: daysBetween(effectiveStart, effectiveEnd),
-        progress: t.pct,
-        parent: parentId,
-        type: "task",
-      });
+      // No dates — skip entirely (SVAR can't render it)
+      continue;
     }
 
-    // Convert predecessors to links
-    for (const predAppId of t.predecessors) {
-      const sourceNum = idMap.get(predAppId);
-      if (sourceNum !== undefined) {
-        svarLinks.push({
-          id: linkId++,
-          source: sourceNum,
-          target: numId,
-          type: "e2s",
-        });
+    // Dependencies → links
+    for (const pred of t.predecessors) {
+      const src = idMap.get(pred);
+      if (src !== undefined) {
+        links.push({ id: linkId++, source: src, target: id, type: "e2s" });
       }
     }
   }
 
-  return { tasks: svarTasks, links: svarLinks };
+  return { tasks, links };
 }
 
-/**
- * Convert a SVAR task update back to our app field changes.
- */
-export function svarUpdateToApp(
-  svarTask: { id: number; start?: Date; end?: Date; text?: string; progress?: number; duration?: number },
-): { appTaskId: string; fields: Array<{ key: string; value: unknown }> } | null {
-  const appId = toAppId(svarTask.id);
+/** Convert SVAR edit event back to app field updates */
+export function svarChangeToApp(
+  task: { id: number; start?: Date; duration?: number; text?: string; progress?: number },
+): { appId: string; fields: Array<{ key: string; value: unknown }> } | null {
+  const appId = toAppId(task.id);
   if (!appId) return null;
 
   const fields: Array<{ key: string; value: unknown }> = [];
-
-  if (svarTask.text !== undefined) {
-    fields.push({ key: "name", value: svarTask.text });
-  }
-  if (svarTask.start !== undefined) {
-    fields.push({ key: "start", value: fmtDate(svarTask.start) });
-    // If duration changed, compute new end date
-    if (svarTask.duration !== undefined) {
-      const end = new Date(svarTask.start);
-      end.setDate(end.getDate() + svarTask.duration);
-      fields.push({ key: "end", value: fmtDate(end) });
+  if (task.text !== undefined) fields.push({ key: "name", value: task.text });
+  if (task.start !== undefined) {
+    fields.push({ key: "start", value: fmt(task.start) });
+    if (task.duration !== undefined) {
+      const end = new Date(task.start);
+      end.setDate(end.getDate() + task.duration);
+      fields.push({ key: "end", value: fmt(end) });
     }
   }
-  if (svarTask.end !== undefined) {
-    fields.push({ key: "end", value: fmtDate(svarTask.end) });
-  }
-  if (svarTask.progress !== undefined) {
-    fields.push({ key: "pct", value: svarTask.progress });
-  }
-
-  return { appTaskId: appId, fields };
+  if (task.progress !== undefined) fields.push({ key: "pct", value: task.progress });
+  return { appId, fields };
 }
 
-function fmtDate(d: Date): string {
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
+function fmt(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }

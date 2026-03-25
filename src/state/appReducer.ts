@@ -31,7 +31,7 @@ export const initialState: AppState = {
   theme: "light",
   collapsedGroups: new Set(),
   collapsedItems: new Set(),
-  ganttZoom: 4,
+  ganttZoom: 3,
   departmentFilter: null,
   pendingWrites: new Map(),
   log: [],

@@ -18,7 +18,7 @@ interface GridRowProps {
   onCommitEdit: (taskId: string, fieldKey: string, value: unknown, previousValue: unknown) => void;
   onCancelEdit: () => void;
   onContextMenu: (taskId: string, x: number, y: number) => void;
-  onGroupRename?: (groupId: string, newName: string) => void;
+  onGroupRename?: (groupId: string, newName: string, previousName: string) => void;
   onGroupDragStart?: (groupId: string) => void;
   onGroupDragOver?: (groupId: string) => void;
   onGroupDragEnd?: () => void;
@@ -76,7 +76,7 @@ export function GridRow({
     function handleGroupRenameCommit(): void {
       const trimmed = groupNameDraft.trim();
       if (trimmed && trimmed !== task.name && onGroupRename) {
-        onGroupRename(task.id, trimmed);
+        onGroupRename(task.id, trimmed, task.name);
       }
       setEditingGroupName(false);
     }

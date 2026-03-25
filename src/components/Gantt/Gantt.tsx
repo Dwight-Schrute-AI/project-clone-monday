@@ -102,8 +102,19 @@ export function Gantt({ scrollContainerRef }: GanttProps): React.JSX.Element {
   const todayX = diffDays(tStart, today) * dayWidth;
   const showTodayLine = todayX >= 0 && todayX <= totalWidth;
 
-  // Only show individual day numbers when zoomed in enough
-  const showDayNumbers = dayWidth >= 16;
+  // Auto-scroll to center today's line when board first loads
+  const hasScrolledToToday = useRef(false);
+  useEffect(() => {
+    if (hasScrolledToToday.current || !showTodayLine || totalWidth === 0) return;
+    const barArea = scrollContainerRef?.current ?? barAreaRef.current;
+    if (!barArea) return;
+    // Wait one frame for layout to settle
+    requestAnimationFrame(() => {
+      const viewWidth = barArea.clientWidth;
+      barArea.scrollLeft = Math.max(0, todayX - viewWidth / 2);
+      hasScrolledToToday.current = true;
+    });
+  }, [showTodayLine, todayX, totalWidth, scrollContainerRef]);
 
   // Project-level summary: earliest start to latest end across ALL tasks
   const projectRange = useMemo(() => {
@@ -124,7 +135,6 @@ export function Gantt({ scrollContainerRef }: GanttProps): React.JSX.Element {
           timelineStart={tStart}
           timelineEnd={tEnd}
           dayWidth={dayWidth}
-          showDayNumbers={showDayNumbers}
         />
       </div>
 

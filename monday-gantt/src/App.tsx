@@ -1,6 +1,7 @@
 /** @module App — minimal monday.com connection → SVAR Gantt */
 
-import { useState, useMemo, useCallback, useEffect, useRef } from "react";
+import { useState, useMemo, useCallback, useEffect, useRef, Component } from "react";
+import type { ReactNode, ErrorInfo } from "react";
 import { Gantt } from "@svar-ui/react-gantt";
 import "@svar-ui/react-gantt/style.css";
 import { testConnection, fetchBoards, fetchBoardData, fetchUsers, updateItem, updateItemName } from "./services/mondayApi";
@@ -48,6 +49,37 @@ const S = {
   statusText: { fontSize: 11, color: "#9ca3af" },
   boardBtn: { display: "block", width: "100%", textAlign: "left" as const, padding: "10px 14px", background: "#16213e", border: "1px solid #2d3a5c", borderRadius: 4, color: "#e0e0e0", cursor: "pointer", fontSize: 13, marginBottom: 4 },
 } as const;
+
+// ─── Error Boundary ──────────────────────────────────────────────
+
+class GanttErrorBoundary extends Component<
+  { children: ReactNode; onError?: (err: Error) => void },
+  { error: Error | null }
+> {
+  constructor(props: { children: ReactNode; onError?: (err: Error) => void }) {
+    super(props);
+    this.state = { error: null };
+  }
+  static getDerivedStateFromError(error: Error): { error: Error } {
+    return { error };
+  }
+  componentDidCatch(error: Error, info: ErrorInfo): void {
+    console.error("[GanttErrorBoundary]", error, info);
+    this.props.onError?.(error);
+  }
+  render(): ReactNode {
+    if (this.state.error) {
+      return (
+        <div style={{ padding: 24, color: "#e44258", background: "#1a1a2e", height: "100%", overflow: "auto" }}>
+          <h3>Gantt chart failed to render</h3>
+          <p>{this.state.error.message}</p>
+          <pre style={{ fontSize: 11, whiteSpace: "pre-wrap", color: "#9ca3af" }}>{this.state.error.stack}</pre>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 // ─── App ─────────────────────────────────────────────────────────
 
@@ -226,7 +258,15 @@ export default function App(): React.JSX.Element {
   }
 
   // ─── Gantt screen ─────
-  const boardName = boards.find((b) => b.id === activeBoardId)?.name ?? "";
+
+  // Debug: log what we're passing to SVAR
+  useEffect(() => {
+    if (screen === "gantt") {
+      console.log("[SVAR DATA] tasks:", svarTasks.length, "links:", svarLinks.length);
+      console.log("[SVAR DATA] first 3 tasks:", JSON.stringify(svarTasks.slice(0, 3), (_, v) => v instanceof Date ? v.toISOString() : v, 2));
+      console.log("[SVAR DATA] first 3 links:", svarLinks.slice(0, 3));
+    }
+  }, [screen, svarTasks, svarLinks]);
 
   return (
     <div style={S.app}>
@@ -244,13 +284,19 @@ export default function App(): React.JSX.Element {
         <button style={S.btn} onClick={() => { localStorage.removeItem("monday_token"); setScreen("connect"); }}>Disconnect</button>
       </div>
       <div style={S.ganttWrap}>
-        <Gantt
-          tasks={svarTasks}
-          links={svarLinks}
-          scales={SCALES[zoom]}
-          columns={GANTT_COLUMNS}
-          init={handleInit}
-        />
+        <GanttErrorBoundary>
+          {svarTasks.length > 0 ? (
+            <Gantt
+              tasks={svarTasks}
+              links={svarLinks}
+              scales={SCALES[zoom]}
+              columns={GANTT_COLUMNS}
+              init={handleInit}
+            />
+          ) : (
+            <div style={{ padding: 24, color: "#9ca3af" }}>No tasks with dates to display</div>
+          )}
+        </GanttErrorBoundary>
       </div>
     </div>
   );

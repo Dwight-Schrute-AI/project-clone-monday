@@ -121,8 +121,9 @@ export function Grid({ scrollContainerRef }: GridProps): React.JSX.Element {
   const handleGroupRename = useCallback(function handleGroupRename(
     groupTaskId: string,
     newName: string,
+    previousName: string,
   ): void {
-    dispatch(taskFieldUpdated(groupTaskId, "name", newName, ""));
+    dispatch(taskFieldUpdated(groupTaskId, "name", newName, previousName));
   }, [dispatch]);
 
   // --- Group drag-and-drop reorder ---

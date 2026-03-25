@@ -257,10 +257,19 @@ export async function updateGroupTitle(
   groupId: string,
   newTitle: string
 ): Promise<void> {
-  await mondayFetch(token, UPDATE_GROUP_TITLE_MUTATION, {
-    boardId,
-    groupId,
-    newValue: newTitle,
-  });
-  logger.info(`Updated group "${groupId}" title to "${newTitle}" on board ${boardId}`);
+  logger.info(`Updating group "${groupId}" title to "${newTitle}" on board ${boardId}...`);
+  const result = await mondayFetch<{ update_group: { id: string } | null }>(
+    token,
+    UPDATE_GROUP_TITLE_MUTATION,
+    {
+      boardId: Number(boardId),
+      groupId,
+      newValue: newTitle,
+    },
+  );
+  if (!result.update_group) {
+    logger.warn(`update_group returned null for group "${groupId}" — title may not have been updated`);
+  } else {
+    logger.info(`Updated group "${groupId}" title to "${newTitle}" (returned id: ${result.update_group.id})`);
+  }
 }

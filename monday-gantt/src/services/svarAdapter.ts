@@ -44,22 +44,21 @@ function diffDays(a: string, b: string): number {
 /**
  * Convert app Task[] → SVAR {tasks, links}.
  *
- * SVAR rules:
- * - Summary tasks with children: SVAR computes dates from children (no start/duration needed)
- * - Summary tasks WITHOUT children: MUST have start + end (or SVAR crashes)
- * - Regular tasks: need start + duration
- * - Milestones: need start only
- * - Tasks without dates: rendered as tasks at project start date (so they're visible)
+ * Strategy: NEVER use type:"summary" (it crashes if children are missing).
+ * Instead, all tasks are type:"task" or type:"milestone".
+ * Groups are represented as regular tasks spanning their date range.
+ * Parent items with subitems are also regular tasks.
+ * Only tasks WITH dates are included — dateless tasks are skipped.
  */
 export function tasksToSvar(appTasks: Task[]): {
   tasks: Array<Record<string, unknown>>;
   links: SvarLink[];
 } {
-  const raw: Array<Record<string, unknown>> = [];
+  const tasks: Array<Record<string, unknown>> = [];
   const links: SvarLink[] = [];
   let linkId = 1;
 
-  // Assign numeric IDs
+  // Assign numeric IDs to all tasks
   for (const t of appTasks) numId(t.id);
 
   // Collect group numeric IDs
@@ -68,24 +67,28 @@ export function tasksToSvar(appTasks: Task[]): {
     if (t.isGroupRow) groupNums.set(t.groupId, numId(t.id));
   }
 
-  // Find parent tasks that have subitems
-  const hasChildren = new Set<string>();
-  for (let i = 0; i < appTasks.length; i++) {
-    if (appTasks[i]!.isSubitem) {
-      for (let j = i - 1; j >= 0; j--) {
-        const p = appTasks[j]!;
-        if (!p.isSubitem && !p.isGroupRow) { hasChildren.add(p.id); break; }
+  // Compute date ranges per group (for group summary bars)
+  const groupRanges = new Map<string, { min: string; max: string }>();
+  for (const t of appTasks) {
+    if (t.isGroupRow) continue;
+    const d1 = t.start;
+    const d2 = t.end;
+    const range = groupRanges.get(t.groupId);
+    if (d1) {
+      if (!range) groupRanges.set(t.groupId, { min: d1, max: d1 });
+      else {
+        if (d1 < range.min) range.min = d1;
+        if (d1 > range.max) range.max = d1;
+      }
+    }
+    if (d2) {
+      if (!range) groupRanges.set(t.groupId, { min: d2, max: d2 });
+      else {
+        if (d2 < range.min) range.min = d2;
+        if (d2 > range.max) range.max = d2;
       }
     }
   }
-
-  // Find the earliest date across all tasks (fallback for dateless tasks)
-  let projectStart: string | null = null;
-  for (const t of appTasks) {
-    const d = t.start ?? t.end;
-    if (d && (!projectStart || d < projectStart)) projectStart = d;
-  }
-  const fallbackDate = projectStart ? toDate(projectStart) : new Date();
 
   let curParentNum = 0;
 
@@ -93,8 +96,21 @@ export function tasksToSvar(appTasks: Task[]): {
     const id = numId(t.id);
 
     if (t.isGroupRow) {
-      // Group → summary. Will check for children in second pass.
-      raw.push({ id, text: t.name, progress: 0, parent: 0, type: "summary", open: true });
+      // Group → regular task spanning group date range
+      const range = groupRanges.get(t.groupId);
+      if (range) {
+        tasks.push({
+          id,
+          text: t.name,
+          start: toDate(range.min),
+          duration: diffDays(range.min, range.max),
+          progress: 0,
+          parent: 0,
+          type: "task",
+          open: true,
+        });
+      }
+      // Skip groups with no dated tasks
       curParentNum = 0;
       continue;
     }
@@ -104,19 +120,14 @@ export function tasksToSvar(appTasks: Task[]): {
     if (t.isSubitem && curParentNum > 0) parent = curParentNum;
     if (!t.isSubitem) curParentNum = id;
 
-    // Parent with subitems → summary
-    if (hasChildren.has(t.id)) {
-      if (t.start && t.end) {
-        raw.push({ id, text: t.name, start: toDate(t.start), duration: diffDays(t.start, t.end), progress: t.pct, parent, type: "summary", open: true });
-      } else {
-        raw.push({ id, text: t.name, progress: t.pct, parent, type: "summary", open: true });
-      }
-    } else if (t.start && t.end && t.start !== t.end) {
-      raw.push({ id, text: t.name, start: toDate(t.start), duration: diffDays(t.start, t.end), progress: t.pct, parent, type: "task" });
+    if (t.start && t.end && t.start !== t.end) {
+      // Normal task with date range
+      tasks.push({ id, text: t.name, start: toDate(t.start), duration: diffDays(t.start, t.end), progress: t.pct, parent, type: "task" });
     } else if (t.start || t.end) {
-      raw.push({ id, text: t.name, start: toDate((t.start ?? t.end)!), progress: t.pct, parent, type: "milestone" });
+      // Single date → milestone
+      tasks.push({ id, text: t.name, start: toDate((t.start ?? t.end)!), progress: t.pct, parent, type: "milestone" });
     } else {
-      // No dates — skip from Gantt entirely
+      // No dates — skip
       continue;
     }
 
@@ -129,30 +140,17 @@ export function tasksToSvar(appTasks: Task[]): {
     }
   }
 
-  // Second pass: summaries without children need fallback start+duration
-  // (SVAR crashes if a summary has no children and no dates)
-  const childParents = new Set<number>();
-  for (const t of raw) {
+  // Validate: remove any tasks whose parent doesn't exist in output
+  const taskIds = new Set(tasks.map((t) => t["id"] as number));
+  const validTasks = tasks.map((t) => {
     const p = t["parent"] as number;
-    if (p > 0) childParents.add(p);
-  }
-
-  const tasks: Array<Record<string, unknown>> = [];
-  for (const t of raw) {
-    if (t["type"] === "summary" && !childParents.has(t["id"] as number)) {
-      // Summary with no children — give it a fallback date or skip
-      if (!t["start"]) {
-        // Convert to a regular task with fallback date so it doesn't crash
-        tasks.push({ ...t, start: fallbackDate, duration: 1, type: "task" });
-      } else {
-        tasks.push(t);
-      }
-    } else {
-      tasks.push(t);
+    if (p !== 0 && !taskIds.has(p)) {
+      return { ...t, parent: 0 }; // orphan → promote to root
     }
-  }
+    return t;
+  });
 
-  return { tasks, links };
+  return { tasks: validTasks, links };
 }
 
 /** Convert SVAR edit event back to app field updates */

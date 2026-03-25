@@ -1,6 +1,7 @@
 /** @module GanttView — wraps SVAR Gantt with monday.com data integration */
 
-import { useMemo, useCallback, useRef } from "react";
+import { useMemo, useCallback, useRef, Component } from "react";
+import type { ReactNode, ErrorInfo } from "react";
 import { Gantt } from "@svar-ui/react-gantt";
 import "@svar-ui/react-gantt/style.css";
 import { useAppContext } from "../../state/AppContext";
@@ -35,6 +36,32 @@ const COLUMNS = [
   { id: "progress", header: "%", width: 50, align: "center" as const },
 ];
 
+/** Error boundary to catch SVAR Gantt rendering crashes */
+class GanttErrorBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
+  constructor(props: { children: ReactNode }) {
+    super(props);
+    this.state = { error: null };
+  }
+  static getDerivedStateFromError(error: Error): { error: Error } {
+    return { error };
+  }
+  componentDidCatch(error: Error, info: ErrorInfo): void {
+    console.error("Gantt render error:", error, info);
+  }
+  render(): ReactNode {
+    if (this.state.error) {
+      return (
+        <div style={{ padding: 24, color: "#e44258" }}>
+          <h3>Gantt chart failed to render</h3>
+          <p>{this.state.error.message}</p>
+          <pre style={{ fontSize: 11, whiteSpace: "pre-wrap" }}>{this.state.error.stack}</pre>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 export function GanttView(): React.JSX.Element {
   const { state, dispatch } = useAppContext();
   const prevBoardRef = useRef<string | null>(null);
@@ -50,14 +77,17 @@ export function GanttView(): React.JSX.Element {
     [state.tasks, state.collapsedGroups, state.collapsedItems, state.departmentFilter, state.columns],
   );
 
-  const { tasks: svarTasks, links: svarLinks } = useMemo(
-    () => tasksToSvar(visibleTasks),
-    [visibleTasks],
-  );
+  const { tasks: svarTasks, links: svarLinks } = useMemo(() => {
+    try {
+      return tasksToSvar(visibleTasks);
+    } catch (err) {
+      console.error("svarAdapter.tasksToSvar failed:", err);
+      return { tasks: [], links: [] };
+    }
+  }, [visibleTasks]);
 
   const scales = SCALE_PRESETS[state.ganttZoom] ?? SCALES_WEEK;
 
-  // Handle SVAR Gantt events for write-back to monday.com
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const handleInit = useCallback((api: any) => {
     api.on("update-task", (ev: { task?: { id: number; start?: Date; end?: Date; text?: string; progress?: number } }) => {
@@ -76,15 +106,26 @@ export function GanttView(): React.JSX.Element {
     });
   }, [dispatch, state.tasks]);
 
+  // Don't render Gantt if no data (avoids SVAR crashes with empty arrays)
+  if (svarTasks.length === 0) {
+    return (
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%", color: "var(--text-secondary)" }}>
+        No tasks to display
+      </div>
+    );
+  }
+
   return (
-    <div style={{ width: "100%", height: "100%" }}>
-      <Gantt
-        tasks={svarTasks}
-        links={svarLinks}
-        scales={scales}
-        columns={COLUMNS}
-        init={handleInit}
-      />
-    </div>
+    <GanttErrorBoundary>
+      <div style={{ width: "100%", height: "100%" }}>
+        <Gantt
+          tasks={svarTasks}
+          links={svarLinks}
+          scales={scales}
+          columns={COLUMNS}
+          init={handleInit}
+        />
+      </div>
+    </GanttErrorBoundary>
   );
 }

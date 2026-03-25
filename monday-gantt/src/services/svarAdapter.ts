@@ -51,9 +51,14 @@ function daysBetween(start: string, end: string): number {
 
 /**
  * Convert our Task[] to SVAR Gantt {tasks, links}.
- * Group rows become summary tasks; parent items with subitems also become summaries.
- * SVAR expects: { id, text, start, end, duration, progress, parent, type, open }
- * No extra properties — SVAR iterates task objects internally.
+ *
+ * SVAR data format (from their demos):
+ * - Regular tasks: { id, text, start: Date, duration: number, progress, parent, type: "task" }
+ * - Summary tasks: { id, text, progress, parent: 0, type: "summary", open: true }
+ *   (NO start/duration — SVAR computes from children)
+ * - Milestones: { id, text, start: Date, progress, parent, type: "milestone" }
+ *   (NO duration)
+ * - Links: { id, source, target, type: "e2s" }
  */
 export function tasksToSvar(appTasks: Task[]): {
   tasks: Array<Record<string, unknown>>;
@@ -63,20 +68,9 @@ export function tasksToSvar(appTasks: Task[]): {
   const svarLinks: SvarLink[] = [];
   let linkId = 1;
 
-  // First pass: assign numeric IDs and determine which parent items have children
-  const parentIdsWithChildren = new Set<string>();
+  // First pass: assign numeric IDs
   for (const t of appTasks) {
     toNumericId(t.id);
-    if (t.isSubitem) {
-      // Find the preceding non-subitem, non-group task as the parent
-      for (let i = appTasks.indexOf(t) - 1; i >= 0; i--) {
-        const prev = appTasks[i]!;
-        if (!prev.isSubitem && !prev.isGroupRow) {
-          parentIdsWithChildren.add(prev.id);
-          break;
-        }
-      }
-    }
   }
 
   // Map group IDs to their numeric SVAR IDs
@@ -87,21 +81,32 @@ export function tasksToSvar(appTasks: Task[]): {
     }
   }
 
+  // Determine which non-group tasks have children (subitems)
+  const parentIdsWithChildren = new Set<string>();
+  for (let i = 0; i < appTasks.length; i++) {
+    const t = appTasks[i]!;
+    if (t.isSubitem) {
+      for (let j = i - 1; j >= 0; j--) {
+        const prev = appTasks[j]!;
+        if (!prev.isSubitem && !prev.isGroupRow) {
+          parentIdsWithChildren.add(prev.id);
+          break;
+        }
+      }
+    }
+  }
+
   // Track current parent item for subitems
   let currentParentNumId = 0;
 
   for (const t of appTasks) {
     const numId = toNumericId(t.id);
-    const now = new Date();
 
     if (t.isGroupRow) {
-      // Group → summary task at root level
+      // Summary task at root — no start/duration, SVAR computes from children
       svarTasks.push({
         id: numId,
         text: t.name,
-        start: now,
-        end: now,
-        duration: 0,
         progress: 0,
         parent: 0,
         type: "summary",
@@ -119,30 +124,52 @@ export function tasksToSvar(appTasks: Task[]): {
     if (t.isSubitem && currentParentNumId > 0) {
       parentId = currentParentNumId;
     }
-
     if (!t.isSubitem) {
       currentParentNumId = numId;
     }
 
-    // Determine type: parent items with subitems → summary, no dates → milestone
-    let taskType: string = "task";
+    // Parent items with subitems → summary (SVAR computes dates from children)
     if (parentIdsWithChildren.has(t.id)) {
-      taskType = "summary";
-    } else if (!effectiveStart || !effectiveEnd || effectiveStart === effectiveEnd) {
-      taskType = "milestone";
+      svarTasks.push({
+        id: numId,
+        text: t.name,
+        progress: t.pct,
+        parent: parentId,
+        type: "summary",
+        open: true,
+      });
+    } else if (!effectiveStart) {
+      // No dates at all — milestone at today
+      svarTasks.push({
+        id: numId,
+        text: t.name,
+        start: new Date(),
+        progress: t.pct,
+        parent: parentId,
+        type: "milestone",
+      });
+    } else if (!effectiveEnd || effectiveStart === effectiveEnd) {
+      // Single date — milestone
+      svarTasks.push({
+        id: numId,
+        text: t.name,
+        start: toDate(effectiveStart),
+        progress: t.pct,
+        parent: parentId,
+        type: "milestone",
+      });
+    } else {
+      // Normal task with start + duration
+      svarTasks.push({
+        id: numId,
+        text: t.name,
+        start: toDate(effectiveStart),
+        duration: daysBetween(effectiveStart, effectiveEnd),
+        progress: t.pct,
+        parent: parentId,
+        type: "task",
+      });
     }
-
-    svarTasks.push({
-      id: numId,
-      text: t.name,
-      start: effectiveStart ? toDate(effectiveStart) : now,
-      end: effectiveEnd ? toDate(effectiveEnd) : now,
-      duration: effectiveStart && effectiveEnd ? daysBetween(effectiveStart, effectiveEnd) : 1,
-      progress: t.pct,
-      parent: parentId,
-      type: taskType,
-      open: true,
-    });
 
     // Convert predecessors to links
     for (const predAppId of t.predecessors) {
@@ -165,7 +192,7 @@ export function tasksToSvar(appTasks: Task[]): {
  * Convert a SVAR task update back to our app field changes.
  */
 export function svarUpdateToApp(
-  svarTask: { id: number; start?: Date; end?: Date; text?: string; progress?: number },
+  svarTask: { id: number; start?: Date; end?: Date; text?: string; progress?: number; duration?: number },
 ): { appTaskId: string; fields: Array<{ key: string; value: unknown }> } | null {
   const appId = toAppId(svarTask.id);
   if (!appId) return null;
@@ -177,6 +204,12 @@ export function svarUpdateToApp(
   }
   if (svarTask.start !== undefined) {
     fields.push({ key: "start", value: fmtDate(svarTask.start) });
+    // If duration changed, compute new end date
+    if (svarTask.duration !== undefined) {
+      const end = new Date(svarTask.start);
+      end.setDate(end.getDate() + svarTask.duration);
+      fields.push({ key: "end", value: fmtDate(end) });
+    }
   }
   if (svarTask.end !== undefined) {
     fields.push({ key: "end", value: fmtDate(svarTask.end) });

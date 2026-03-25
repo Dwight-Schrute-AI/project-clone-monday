@@ -31,8 +31,7 @@ const SCALE_PRESETS = [SCALES_MONTH, SCALES_MONTH, SCALES_MONTH, SCALES_WEEK, SC
 const COLUMNS = [
   { id: "text", header: "Task Name", flexgrow: 1, width: 250 },
   { id: "start", header: "Start", width: 100 },
-  { id: "end", header: "End", width: 100 },
-  { id: "duration", header: "Duration", width: 70, align: "center" as const },
+  { id: "duration", header: "Duration", width: 80, align: "center" as const },
   { id: "progress", header: "%", width: 50, align: "center" as const },
 ];
 

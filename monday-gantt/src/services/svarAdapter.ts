@@ -43,18 +43,23 @@ function diffDays(a: string, b: string): number {
 
 /**
  * Convert app Task[] → SVAR {tasks, links}.
- * Skips tasks with no dates entirely (subitems without dates become noise).
- * Groups become summary rows. Dependencies become links.
+ *
+ * SVAR rules:
+ * - Summary tasks with children: SVAR computes dates from children (no start/duration needed)
+ * - Summary tasks WITHOUT children: MUST have start + end (or SVAR crashes)
+ * - Regular tasks: need start + duration
+ * - Milestones: need start only
+ * - Tasks without dates: rendered as tasks at project start date (so they're visible)
  */
 export function tasksToSvar(appTasks: Task[]): {
   tasks: Array<Record<string, unknown>>;
   links: SvarLink[];
 } {
-  const tasks: Array<Record<string, unknown>> = [];
+  const raw: Array<Record<string, unknown>> = [];
   const links: SvarLink[] = [];
   let linkId = 1;
 
-  // Assign numeric IDs to everything first
+  // Assign numeric IDs
   for (const t of appTasks) numId(t.id);
 
   // Collect group numeric IDs
@@ -63,7 +68,7 @@ export function tasksToSvar(appTasks: Task[]): {
     if (t.isGroupRow) groupNums.set(t.groupId, numId(t.id));
   }
 
-  // Find which parent tasks have subitems
+  // Find parent tasks that have subitems
   const hasChildren = new Set<string>();
   for (let i = 0; i < appTasks.length; i++) {
     if (appTasks[i]!.isSubitem) {
@@ -74,40 +79,45 @@ export function tasksToSvar(appTasks: Task[]): {
     }
   }
 
+  // Find the earliest date across all tasks (fallback for dateless tasks)
+  let projectStart: string | null = null;
+  for (const t of appTasks) {
+    const d = t.start ?? t.end;
+    if (d && (!projectStart || d < projectStart)) projectStart = d;
+  }
+  const fallbackDate = projectStart ? toDate(projectStart) : new Date();
+
   let curParentNum = 0;
 
   for (const t of appTasks) {
     const id = numId(t.id);
 
-    // Group row → summary (SVAR computes dates from children)
     if (t.isGroupRow) {
-      tasks.push({ id, text: t.name, progress: 0, parent: 0, type: "summary", open: true });
+      // Group → summary. Will check for children in second pass.
+      raw.push({ id, text: t.name, progress: 0, parent: 0, type: "summary", open: true });
       curParentNum = 0;
       continue;
     }
 
-    // Determine parent numeric ID
+    // Determine parent
     let parent = groupNums.get(t.groupId) ?? 0;
     if (t.isSubitem && curParentNum > 0) parent = curParentNum;
     if (!t.isSubitem) curParentNum = id;
 
     // Parent with subitems → summary
     if (hasChildren.has(t.id)) {
-      // If it has its own dates, pass them so SVAR has something to show
       if (t.start && t.end) {
-        tasks.push({ id, text: t.name, start: toDate(t.start), duration: diffDays(t.start, t.end), progress: t.pct, parent, type: "summary", open: true });
+        raw.push({ id, text: t.name, start: toDate(t.start), duration: diffDays(t.start, t.end), progress: t.pct, parent, type: "summary", open: true });
       } else {
-        tasks.push({ id, text: t.name, progress: t.pct, parent, type: "summary", open: true });
+        raw.push({ id, text: t.name, progress: t.pct, parent, type: "summary", open: true });
       }
     } else if (t.start && t.end && t.start !== t.end) {
-      // Normal task with date range
-      tasks.push({ id, text: t.name, start: toDate(t.start), duration: diffDays(t.start, t.end), progress: t.pct, parent, type: "task" });
+      raw.push({ id, text: t.name, start: toDate(t.start), duration: diffDays(t.start, t.end), progress: t.pct, parent, type: "task" });
     } else if (t.start || t.end) {
-      // Single date → milestone
-      tasks.push({ id, text: t.name, start: toDate((t.start ?? t.end)!), progress: t.pct, parent, type: "milestone" });
+      raw.push({ id, text: t.name, start: toDate((t.start ?? t.end)!), progress: t.pct, parent, type: "milestone" });
     } else {
-      // No dates — skip entirely (SVAR can't render it)
-      continue;
+      // No dates — render as 1-day task at project start so it's visible in the grid
+      raw.push({ id, text: t.name, start: fallbackDate, duration: 1, progress: t.pct, parent, type: "task" });
     }
 
     // Dependencies → links
@@ -116,6 +126,29 @@ export function tasksToSvar(appTasks: Task[]): {
       if (src !== undefined) {
         links.push({ id: linkId++, source: src, target: id, type: "e2s" });
       }
+    }
+  }
+
+  // Second pass: summaries without children need fallback start+duration
+  // (SVAR crashes if a summary has no children and no dates)
+  const childParents = new Set<number>();
+  for (const t of raw) {
+    const p = t["parent"] as number;
+    if (p > 0) childParents.add(p);
+  }
+
+  const tasks: Array<Record<string, unknown>> = [];
+  for (const t of raw) {
+    if (t["type"] === "summary" && !childParents.has(t["id"] as number)) {
+      // Summary with no children — give it a fallback date or skip
+      if (!t["start"]) {
+        // Convert to a regular task with fallback date so it doesn't crash
+        tasks.push({ ...t, start: fallbackDate, duration: 1, type: "task" });
+      } else {
+        tasks.push(t);
+      }
+    } else {
+      tasks.push(t);
     }
   }
 

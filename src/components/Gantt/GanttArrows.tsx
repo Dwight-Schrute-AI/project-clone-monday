@@ -4,7 +4,6 @@ import { useMemo } from "react";
 import type { Task } from "../../types";
 import type { RowGeometry } from "../../state/selectors";
 import { diffDays } from "../../utils/dateUtils";
-import { logger } from "../../services/logger";
 import styles from "./Gantt.module.css";
 
 interface GanttArrowsProps {
@@ -20,15 +19,12 @@ interface GanttArrowsProps {
 interface ArrowPath {
   key: string;
   d: string;
-  /** "right" = arrowhead points right at bar left edge; "down" = arrowhead points down at bar top */
-  direction: "right" | "down";
   tipX: number;
   tipY: number;
 }
 
 const ARROW_SIZE = 5;
 const BEND_OFFSET = 12;
-const BAR_V_PADDING = 5;
 
 function barRightX(task: Task, timelineStart: string, dayWidth: number): number {
   const effectiveStart = task.start ?? task.end!;
@@ -61,113 +57,72 @@ export function GanttArrows({
   const arrows = useMemo(() => {
     const result: ArrowPath[] = [];
 
-    let skippedCrossBoard = 0;
-    let skippedMissingGeo = 0;
-    let skippedMissingDate = 0;
-
     for (const [predId, successorIds] of dependencyGraph) {
       const predTask = taskMap.get(predId);
-      if (!predTask) { skippedCrossBoard++; continue; }
+      if (!predTask) continue;
       const predGeo = rowGeometryMap.get(predId);
-      if (!predGeo) { skippedMissingGeo++; continue; }
+      if (!predGeo) continue;
 
       const predEnd = predTask.end ?? predTask.start;
-      if (!predEnd) { skippedMissingDate++; continue; }
+      if (!predEnd) continue;
 
       // Right edge of predecessor bar, center Y
-      const startX = barRightX(predTask, timelineStart, dayWidth);
-      const startY = predGeo.y + predGeo.height / 2;
+      const px = barRightX(predTask, timelineStart, dayWidth);
+      const py = predGeo.y + predGeo.height / 2;
 
       for (const succId of successorIds) {
         const succTask = taskMap.get(succId);
-        if (!succTask) { skippedCrossBoard++; continue; }
+        if (!succTask) continue;
         const succGeo = rowGeometryMap.get(succId);
-        if (!succGeo) { skippedMissingGeo++; continue; }
+        if (!succGeo) continue;
 
         const succStart = succTask.start ?? succTask.end;
-        if (!succStart) { skippedMissingDate++; continue; }
+        if (!succStart) continue;
 
-        const succLeftX = barLeftX(succTask, timelineStart, dayWidth);
-        const succBarTop = succGeo.y + BAR_V_PADDING;
-        const succCenterY = succGeo.y + succGeo.height / 2;
+        const sx = barLeftX(succTask, timelineStart, dayWidth);
+        const sy = succGeo.y + succGeo.height / 2;
 
-        // Routing strategy:
-        // Always approach the successor from above to avoid crossing over bar faces.
-        // Route: exit pred right → go right → go to above succ row → go to approach X → drop down into bar top
-        const midX = startX + BEND_OFFSET;
-        const aboveY = succGeo.y - 4; // just above the successor row
-        // Approach from above, landing on the bar left edge area
-        const approachX = succLeftX + ARROW_SIZE + 2;
+        // Arrow enters the successor bar from the LEFT (arrowhead points right).
+        // To avoid crossing over bar faces, route ABOVE the successor row
+        // before dropping down to the bar's center height, then go right to
+        // the bar's left edge.
+
+        const midX = px + BEND_OFFSET;
+        // Y just above the successor row (clears the bar)
+        const aboveY = succGeo.y - 4;
+        // X where the vertical drop occurs — just left of the bar
+        const approachX = sx - BEND_OFFSET;
 
         let d: string;
-        let direction: "right" | "down";
-        let tipX: number;
-        let tipY: number;
 
-        if (succCenterY <= startY - 10) {
-          // Successor is ABOVE predecessor — route up then left/right to approach from above
-          const aboveSucc = succGeo.y + succGeo.height + 4; // below the successor row
+        if (sx > px + BEND_OFFSET * 3) {
+          // Normal case: successor starts well after predecessor ends.
+          // Route: right from pred → up/down to above succ row → right
+          // to just left of bar → down to bar center → right to bar edge.
           d = [
-            `M ${s(startX)} ${s(startY)}`,
-            `H ${s(midX)}`,
-            `V ${s(aboveSucc)}`,
-            `H ${s(approachX)}`,
-            `V ${s(succBarTop)}`,  // backtrack up to bar top
+            `M ${n(px)} ${n(py)}`,
+            `H ${n(midX)}`,
+            `V ${n(aboveY)}`,
+            `H ${n(approachX)}`,
+            `V ${n(sy)}`,
+            `H ${n(sx)}`,
           ].join(" ");
-          // Actually for above-pred case, arrive from below going up
-          // Let's do a simpler left-entry approach for upward arrows
-          d = [
-            `M ${s(startX)} ${s(startY)}`,
-            `H ${s(midX)}`,
-            `V ${s(aboveY)}`,
-            `H ${s(approachX)}`,
-            `V ${s(succBarTop)}`,
-          ].join(" ");
-          direction = "down";
-          tipX = approachX;
-          tipY = succBarTop;
-        } else if (succLeftX > startX + BEND_OFFSET * 2 + ARROW_SIZE) {
-          // Normal case: successor bar is well to the right — enough room for clean approach
-          // Route: right → down to above succ → right to approach point → down to bar top
-          d = [
-            `M ${s(startX)} ${s(startY)}`,
-            `H ${s(midX)}`,
-            `V ${s(aboveY)}`,
-            `H ${s(approachX)}`,
-            `V ${s(succBarTop)}`,
-          ].join(" ");
-          direction = "down";
-          tipX = approachX;
-          tipY = succBarTop;
         } else {
-          // Bars overlap or are close — route right, down past pred, then left and down above succ
+          // Tight/overlapping: not enough room for a clean approach from
+          // left. Route right past pred, then up/down above succ row,
+          // left to approach point, down to center, right to bar edge.
           d = [
-            `M ${s(startX)} ${s(startY)}`,
-            `H ${s(midX)}`,
-            `V ${s(aboveY)}`,
-            `H ${s(approachX)}`,
-            `V ${s(succBarTop)}`,
+            `M ${n(px)} ${n(py)}`,
+            `H ${n(midX)}`,
+            `V ${n(aboveY)}`,
+            `H ${n(approachX)}`,
+            `V ${n(sy)}`,
+            `H ${n(sx)}`,
           ].join(" ");
-          direction = "down";
-          tipX = approachX;
-          tipY = succBarTop;
         }
 
-        result.push({ key: `${predId}-${succId}`, d, direction, tipX, tipY });
+        result.push({ key: `${predId}-${succId}`, d, tipX: sx, tipY: sy });
       }
-    }
-
-    if (skippedCrossBoard > 0) {
-      logger.info(`Dependency arrows: ${String(skippedCrossBoard)} cross-board edge(s) skipped`);
-    }
-    if (skippedMissingGeo > 0) {
-      logger.warn(`Dependency arrows: ${String(skippedMissingGeo)} edge(s) skipped — task not visible`);
-    }
-    if (skippedMissingDate > 0) {
-      logger.warn(`Dependency arrows: ${String(skippedMissingDate)} edge(s) skipped — task has no dates`);
-    }
-    if (result.length > 0) {
-      logger.info(`Dependency arrows: rendering ${String(result.length)} arrow(s)`);
     }
 
     return result;
@@ -189,17 +144,10 @@ export function GanttArrows({
             stroke="var(--gantt-arrow, var(--text-secondary))"
             strokeWidth="1.5"
           />
-          {arrow.direction === "right" ? (
-            <polygon
-              points={`${s(arrow.tipX)},${s(arrow.tipY)} ${s(arrow.tipX - ARROW_SIZE)},${s(arrow.tipY - ARROW_SIZE)} ${s(arrow.tipX - ARROW_SIZE)},${s(arrow.tipY + ARROW_SIZE)}`}
-              fill="var(--gantt-arrow, var(--text-secondary))"
-            />
-          ) : (
-            <polygon
-              points={`${s(arrow.tipX)},${s(arrow.tipY)} ${s(arrow.tipX - ARROW_SIZE)},${s(arrow.tipY - ARROW_SIZE)} ${s(arrow.tipX + ARROW_SIZE)},${s(arrow.tipY - ARROW_SIZE)}`}
-              fill="var(--gantt-arrow, var(--text-secondary))"
-            />
-          )}
+          <polygon
+            points={`${n(arrow.tipX)},${n(arrow.tipY)} ${n(arrow.tipX - ARROW_SIZE)},${n(arrow.tipY - ARROW_SIZE)} ${n(arrow.tipX - ARROW_SIZE)},${n(arrow.tipY + ARROW_SIZE)}`}
+            fill="var(--gantt-arrow, var(--text-secondary))"
+          />
         </g>
       ))}
     </svg>
@@ -207,6 +155,6 @@ export function GanttArrows({
 }
 
 /** Stringify a number for SVG path data */
-function s(n: number): string {
-  return String(Math.round(n));
+function n(v: number): string {
+  return String(Math.round(v));
 }

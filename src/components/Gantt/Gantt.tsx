@@ -6,7 +6,6 @@ import { selectVisibleTasks, selectRowGeometry, selectDependencyGraph } from "..
 import type { RowGeometry } from "../../state/selectors";
 import type { Task } from "../../types";
 import { diffDays, addDays, formatDate, isWeekend, dateRange } from "../../utils/dateUtils";
-import { logger } from "../../services/logger";
 import { TimeHeader } from "./TimeHeader";
 import { GanttBar } from "./GanttBar";
 import { GanttArrows } from "./GanttArrows";
@@ -31,7 +30,7 @@ export function Gantt({ scrollContainerRef }: GanttProps): React.JSX.Element {
 
   const visibleTasks = useMemo(
     () => selectVisibleTasks(state),
-    [state],
+    [state.tasks, state.collapsedGroups, state.collapsedItems],
   );
 
   const rowGeometry = useMemo(
@@ -47,18 +46,10 @@ export function Gantt({ scrollContainerRef }: GanttProps): React.JSX.Element {
 
   // Build dependency graph from ALL tasks (not just visible) so arrows render
   // correctly when a predecessor is in a different group that happens to be visible
-  const dependencyGraph = useMemo(() => {
-    const graph = selectDependencyGraph(state.tasks);
-    const tasksWithPreds = state.tasks.filter((t) => t.predecessors.length > 0);
-    if (tasksWithPreds.length > 0) {
-      logger.info(
-        `[GANTT-ARROWS] ${String(tasksWithPreds.length)} task(s) with predecessors, ` +
-        `graph has ${String(graph.size)} entry(ies). ` +
-        `Sample: ${tasksWithPreds.slice(0, 3).map((t) => `${t.name}→[${t.predecessors.join(",")}]`).join("; ")}`
-      );
-    }
-    return graph;
-  }, [state.tasks]);
+  const dependencyGraph = useMemo(
+    () => selectDependencyGraph(state.tasks),
+    [state.tasks],
+  );
 
   const { start: tStart, end: tEnd } = useMemo(
     () => computeTimelineRange(visibleTasks),

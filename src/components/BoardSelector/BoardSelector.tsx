@@ -40,14 +40,16 @@ export function BoardSelector(): React.JSX.Element {
   const [error, setError] = useState<string | null>(null);
 
   const filteredGroups = useMemo(() => {
+    // Only show project boards matching "T" followed by digits (e.g. T26003)
+    const projectBoards = state.boards.filter((b) => /^T\d+/.test(b.name));
     const lower = filter.toLowerCase();
     const filtered = lower
-      ? state.boards.filter(
+      ? projectBoards.filter(
           (b) =>
             b.name.toLowerCase().includes(lower) ||
             b.workspaceName.toLowerCase().includes(lower),
         )
-      : state.boards;
+      : projectBoards;
     return groupByWorkspace(filtered);
   }, [state.boards, filter]);
 

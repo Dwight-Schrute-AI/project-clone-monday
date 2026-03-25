@@ -19,6 +19,7 @@
   --gantt-bar-subitem: #5b6a80;
   --text-subitem: #888;
   --bg-subitem: rgba(0, 0, 0, 0.02);
+  --bg-hash: rgba(0, 0, 0, 0.04);
   --row-hover: rgba(0, 115, 234, 0.04);
   --row-selected: rgba(0, 115, 234, 0.08);
 }
@@ -42,6 +43,7 @@
   --gantt-bar-subitem: #7a8a9e;
   --text-subitem: #777;
   --bg-subitem: rgba(255, 255, 255, 0.03);
+  --bg-hash: rgba(255, 255, 255, 0.06);
   --row-hover: rgba(88, 155, 255, 0.06);
   --row-selected: rgba(88, 155, 255, 0.1);
 }

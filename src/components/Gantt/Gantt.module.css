@@ -7,6 +7,42 @@
   overflow: hidden;
 }
 
+/* --- Gantt Toolbar (time header + zoom) --- */
+
+.ganttToolbar {
+  flex-shrink: 0;
+  position: relative;
+}
+
+.zoomControl {
+  position: absolute;
+  top: 2px;
+  right: 8px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  z-index: 4;
+  background: var(--bg-surface);
+  padding: 2px 6px;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+}
+
+.zoomLabel {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  min-width: 40px;
+  text-align: center;
+}
+
+.zoomSlider {
+  width: 80px;
+  height: 14px;
+  cursor: pointer;
+  accent-color: var(--accent);
+}
+
 /* --- Time Header --- */
 
 .timeHeader {

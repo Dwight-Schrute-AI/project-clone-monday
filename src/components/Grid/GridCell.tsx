@@ -26,6 +26,14 @@ interface GridCellProps {
   onCancelEdit: () => void;
 }
 
+/** Columns subitems are allowed to display/edit */
+const SUBITEM_ALLOWED_KEYS = new Set(["_rowNum", "_name"]);
+const SUBITEM_ALLOWED_TYPES = new Set(["status", "people"]);
+
+function isSubitemAllowed(column: Column): boolean {
+  return SUBITEM_ALLOWED_KEYS.has(column.key) || SUBITEM_ALLOWED_TYPES.has(column.mondayColType ?? "");
+}
+
 export function GridCell({
   task,
   column,
@@ -39,18 +47,24 @@ export function GridCell({
   onCancelEdit,
 }: GridCellProps): React.JSX.Element {
   const { state } = useAppContext();
-  const value = getCellValue(task, column, displayIds);
-  const displayText = formatCellDisplay(value, column, state.userDirectory, allDisplayIds, task.predecessorLabels);
+
+  // Subitems: disable and blank out non-allowed columns
+  const subitemDisabled = task.isSubitem && !isSubitemAllowed(column);
+
+  const value = subitemDisabled ? "" : getCellValue(task, column, displayIds);
+  const displayText = subitemDisabled ? "" : formatCellDisplay(value, column, state.userDirectory, allDisplayIds, task.predecessorLabels);
 
   const isPickerColumn = column.editorType === "status" || column.editorType === "people" || column.editorType === "dropdown" || column.editorType === "dependency";
 
   function handleClick(): void {
+    if (subitemDisabled) return;
     if (isPickerColumn && column.editable && !task.isGroupRow) {
       onStartEdit(task.id, column.key);
     }
   }
 
   function handleDoubleClick(): void {
+    if (subitemDisabled) return;
     if (column.editable && !task.isGroupRow) {
       onStartEdit(task.id, column.key);
     }
@@ -76,8 +90,9 @@ export function GridCell({
   const isRowNum = column.key === "_rowNum";
   const classNames = [styles.cell];
   if (stickyLeft !== null) classNames.push(styles.cellFixed);
-  if (editing) classNames.push(styles.cellEditing);
+  if (editing && !subitemDisabled) classNames.push(styles.cellEditing);
   if (isRowNum) classNames.push(styles.cellRowNum);
+  if (subitemDisabled) classNames.push(styles.cellDisabled);
 
   const isNameCol = column.key === "_name";
   const indentPx = isNameCol ? task.indent * 20 + 8 : undefined;
@@ -95,7 +110,7 @@ export function GridCell({
       onClick={handleClick}
       onDoubleClick={handleDoubleClick}
     >
-      {editing
+      {editing && !subitemDisabled
         ? (column.mondayColType === "timeline"
           ? <DateRangeEditor startDate={task.start} endDate={task.end} onCommit={handleTimelineCommit} onCancel={onCancelEdit} />
           : renderEditor(value, column, task.isSubitem, task.id, allDisplayIds, handleEditorCommit, onCancelEdit))

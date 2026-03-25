@@ -555,6 +555,8 @@ export function mapBoardToTasks(
     if (col.id.startsWith("__")) continue;
     if (!KNOWN_COLUMN_TYPES.has(col.type)) continue;
     if (HIDDEN_COLUMN_LABELS.has(col.title.toLowerCase())) continue;
+    // Exclude board_relation (cross-board link) columns from the grid
+    if (col.type === "board_relation") continue;
 
     // Normalize monday.com internal type names to our MondayColumnType
     const mondayType = (col.type === "color" ? "status" : col.type) as MondayColumnType;

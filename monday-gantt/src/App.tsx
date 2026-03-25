@@ -3,7 +3,7 @@
 import { useState, useMemo, useCallback, useEffect, useRef, Component } from "react";
 import type { ReactNode, ErrorInfo } from "react";
 import { Gantt } from "@svar-ui/react-gantt";
-import "@svar-ui/react-gantt/style.css";
+import "@svar-ui/react-gantt/all.css";
 import { testConnection, fetchBoards, fetchBoardData, fetchUsers, updateItem, updateItemName } from "./services/mondayApi";
 import { mapBoardToTasks, mapFieldToMondayValue } from "./services/dataMapper";
 import { tasksToSvar, svarChangeToApp, resetIdMap } from "./services/svarAdapter";
@@ -27,10 +27,9 @@ const SCALES = {
 };
 
 const GANTT_COLUMNS = [
-  { id: "text", header: "Task Name", flexgrow: 1, width: 280 },
-  { id: "start", header: "Start", width: 100 },
-  { id: "duration", header: "Days", width: 60, align: "center" as const },
-  { id: "progress", header: "%", width: 50, align: "center" as const },
+  { id: "text", header: "Task Name", flexgrow: 1, width: 350 },
+  { id: "start", header: "Start", width: 110 },
+  { id: "duration", header: "Days", width: 55, align: "center" as const },
 ];
 
 // ─── Styles ──────────────────────────────────────────────────────
@@ -297,13 +296,14 @@ export default function App(): React.JSX.Element {
         <span style={S.statusDot} /><span style={S.statusText}>{userName} · {tasks.filter((t) => !t.isGroupRow).length} tasks</span>
         <button style={S.btn} onClick={() => { localStorage.removeItem("monday_token"); setScreen("connect"); }}>Disconnect</button>
       </div>
-      <div style={S.ganttWrap}>
+      <div style={S.ganttWrap} className="wx-willow-dark-theme">
         <GanttErrorBoundary>
           <Gantt
             tasks={ganttTasks}
             links={ganttLinks}
             scales={SCALES[zoom]}
             columns={GANTT_COLUMNS}
+            cellHeight={36}
           />
         </GanttErrorBoundary>
       </div>

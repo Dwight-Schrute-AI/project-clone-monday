@@ -116,8 +116,8 @@ export function tasksToSvar(appTasks: Task[]): {
     } else if (t.start || t.end) {
       raw.push({ id, text: t.name, start: toDate((t.start ?? t.end)!), progress: t.pct, parent, type: "milestone" });
     } else {
-      // No dates — render as 1-day task at project start so it's visible in the grid
-      raw.push({ id, text: t.name, start: fallbackDate, duration: 1, progress: t.pct, parent, type: "task" });
+      // No dates — skip from Gantt entirely
+      continue;
     }
 
     // Dependencies → links

@@ -1,6 +1,6 @@
 /** @module Gantt — container: time header, bar area, today line, dependency arrows */
 
-import { useMemo, useRef } from "react";
+import { useMemo, useRef, useState, useCallback } from "react";
 import { useAppContext } from "../../state/AppContext";
 import { selectVisibleTasks, selectRowGeometry, selectDependencyGraph } from "../../state/selectors";
 import type { RowGeometry } from "../../state/selectors";
@@ -11,7 +11,16 @@ import { GanttBar } from "./GanttBar";
 import { GanttArrows } from "./GanttArrows";
 import styles from "./Gantt.module.css";
 
-const DAY_WIDTH = 30;
+/** Zoom presets: label, dayWidth in pixels */
+const ZOOM_PRESETS = [
+  { label: "Year", dayWidth: 2 },
+  { label: "Quarter", dayWidth: 5 },
+  { label: "Month", dayWidth: 10 },
+  { label: "Week", dayWidth: 20 },
+  { label: "Day", dayWidth: 30 },
+] as const;
+
+const DEFAULT_ZOOM = 4; // "Day" (index into ZOOM_PRESETS)
 const TIMELINE_PAD_DAYS = 14;
 
 interface GroupRange {
@@ -27,6 +36,15 @@ interface GanttProps {
 export function Gantt({ scrollContainerRef }: GanttProps): React.JSX.Element {
   const { state } = useAppContext();
   const barAreaRef = useRef<HTMLDivElement>(null);
+  const [zoomIndex, setZoomIndex] = useState(DEFAULT_ZOOM);
+
+  const preset = ZOOM_PRESETS[zoomIndex] ?? ZOOM_PRESETS[DEFAULT_ZOOM]!;
+  const dayWidth = preset.dayWidth;
+  const zoomLabel = preset.label;
+
+  const handleZoomChange = useCallback(function handleZoomChange(e: React.ChangeEvent<HTMLInputElement>): void {
+    setZoomIndex(Number(e.target.value));
+  }, []);
 
   const visibleTasks = useMemo(
     () => selectVisibleTasks(state),
@@ -44,8 +62,6 @@ export function Gantt({ scrollContainerRef }: GanttProps): React.JSX.Element {
     return map;
   }, [rowGeometry]);
 
-  // Build dependency graph from ALL tasks (not just visible) so arrows render
-  // correctly when a predecessor is in a different group that happens to be visible
   const dependencyGraph = useMemo(
     () => selectDependencyGraph(state.tasks),
     [state.tasks],
@@ -62,28 +78,45 @@ export function Gantt({ scrollContainerRef }: GanttProps): React.JSX.Element {
   );
 
   const totalDays = diffDays(tStart, tEnd) + 1;
-  const totalWidth = totalDays * DAY_WIDTH;
+  const totalWidth = totalDays * dayWidth;
   const lastRow = rowGeometry[rowGeometry.length - 1];
   const totalHeight = lastRow ? lastRow.y + lastRow.height : 0;
 
-  // Weekend stripe positions
   const weekendDays = useMemo(() => {
     const days = dateRange(tStart, tEnd);
     return days.filter(isWeekend);
   }, [tStart, tEnd]);
 
-  // Today line
   const today = formatDate(new Date());
-  const todayX = diffDays(tStart, today) * DAY_WIDTH;
+  const todayX = diffDays(tStart, today) * dayWidth;
   const showTodayLine = todayX >= 0 && todayX <= totalWidth;
+
+  // Only show individual day numbers when zoomed in enough
+  const showDayNumbers = dayWidth >= 16;
 
   return (
     <div className={styles.gantt}>
-      <TimeHeader
-        timelineStart={tStart}
-        timelineEnd={tEnd}
-        dayWidth={DAY_WIDTH}
-      />
+      <div className={styles.ganttToolbar}>
+        <TimeHeader
+          timelineStart={tStart}
+          timelineEnd={tEnd}
+          dayWidth={dayWidth}
+          showDayNumbers={showDayNumbers}
+        />
+        <div className={styles.zoomControl}>
+          <span className={styles.zoomLabel}>{zoomLabel}</span>
+          <input
+            type="range"
+            className={styles.zoomSlider}
+            min="0"
+            max={String(ZOOM_PRESETS.length - 1)}
+            step="1"
+            value={zoomIndex}
+            onChange={handleZoomChange}
+            aria-label="Gantt zoom level"
+          />
+        </div>
+      </div>
 
       <div className={styles.barArea} ref={scrollContainerRef ?? barAreaRef}>
         <div
@@ -91,12 +124,12 @@ export function Gantt({ scrollContainerRef }: GanttProps): React.JSX.Element {
           style={{ width: totalWidth, height: Math.max(totalHeight, 1) }}
         >
           {weekendDays.map((day) => {
-            const x = diffDays(tStart, day) * DAY_WIDTH;
+            const x = diffDays(tStart, day) * dayWidth;
             return (
               <div
                 key={`wk-${day}`}
                 className={styles.weekendStripe}
-                style={{ left: x, width: DAY_WIDTH }}
+                style={{ left: x, width: dayWidth }}
               />
             );
           })}
@@ -117,7 +150,7 @@ export function Gantt({ scrollContainerRef }: GanttProps): React.JSX.Element {
                 key={task.id}
                 task={task}
                 timelineStart={tStart}
-                dayWidth={DAY_WIDTH}
+                dayWidth={dayWidth}
                 y={rg.y}
                 rowHeight={rg.height}
                 groupRange={groupRange}
@@ -130,7 +163,7 @@ export function Gantt({ scrollContainerRef }: GanttProps): React.JSX.Element {
             rowGeometryMap={rowGeometryMap}
             dependencyGraph={dependencyGraph}
             timelineStart={tStart}
-            dayWidth={DAY_WIDTH}
+            dayWidth={dayWidth}
             totalWidth={totalWidth}
             totalHeight={totalHeight}
           />
@@ -140,10 +173,6 @@ export function Gantt({ scrollContainerRef }: GanttProps): React.JSX.Element {
   );
 }
 
-/**
- * Compute the timeline range from all tasks' dates with padding.
- * Defaults to the current month if no tasks have dates.
- */
 function computeTimelineRange(tasks: Task[]): { start: string; end: string } {
   let minDate: string | null = null;
   let maxDate: string | null = null;
@@ -161,7 +190,6 @@ function computeTimelineRange(tasks: Task[]): { start: string; end: string } {
   }
 
   if (!minDate || !maxDate) {
-    // Default: current month with padding
     const now = new Date();
     const monthStart = formatDate(new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)));
     const monthEnd = formatDate(new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 0)));
@@ -177,9 +205,6 @@ function computeTimelineRange(tasks: Task[]): { start: string; end: string } {
   };
 }
 
-/**
- * Compute summary ranges for each group: min start, max end, average pct.
- */
 function computeGroupRanges(tasks: Task[]): Map<string, GroupRange> {
   const groups = new Map<string, { starts: string[]; ends: string[]; pcts: number[] }>();
 

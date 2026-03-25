@@ -38,3 +38,15 @@
   font-size: 12px;
   justify-content: center;
 }
+
+.cellDisabled {
+  background: repeating-linear-gradient(
+    -45deg,
+    transparent,
+    transparent 3px,
+    var(--bg-hash, rgba(0, 0, 0, 0.04)) 3px,
+    var(--bg-hash, rgba(0, 0, 0, 0.04)) 4px
+  );
+  cursor: default;
+  pointer-events: none;
+}

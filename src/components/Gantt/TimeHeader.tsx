@@ -8,6 +8,7 @@ interface TimeHeaderProps {
   timelineStart: string;
   timelineEnd: string;
   dayWidth: number;
+  showDayNumbers?: boolean;
 }
 
 interface MonthGroup {
@@ -25,6 +26,7 @@ export function TimeHeader({
   timelineStart,
   timelineEnd,
   dayWidth,
+  showDayNumbers = true,
 }: TimeHeaderProps): React.JSX.Element {
   const days = useMemo(
     () => dateRange(timelineStart, timelineEnd),
@@ -60,26 +62,28 @@ export function TimeHeader({
             className={styles.monthCell}
             style={{ width: m.dayCount * dayWidth }}
           >
-            {m.label}
+            {m.dayCount * dayWidth > 40 ? m.label : ""}
           </div>
         ))}
       </div>
-      <div className={styles.dayRow}>
-        {days.map((day) => {
-          const d = parseDate(day);
-          const dow = d.getUTCDay();
-          const isWknd = dow === 0 || dow === 6;
-          const cls = isWknd
-            ? `${styles.dayCell} ${styles.dayCellWeekend}`
-            : styles.dayCell;
+      {showDayNumbers && (
+        <div className={styles.dayRow}>
+          {days.map((day) => {
+            const d = parseDate(day);
+            const dow = d.getUTCDay();
+            const isWknd = dow === 0 || dow === 6;
+            const cls = isWknd
+              ? `${styles.dayCell} ${styles.dayCellWeekend}`
+              : styles.dayCell;
 
-          return (
-            <div key={day} className={cls} style={{ width: dayWidth }}>
-              {String(d.getUTCDate())}
-            </div>
-          );
-        })}
-      </div>
+            return (
+              <div key={day} className={cls} style={{ width: dayWidth }}>
+                {dayWidth >= 20 ? String(d.getUTCDate()) : ""}
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }

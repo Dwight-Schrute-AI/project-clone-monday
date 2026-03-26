@@ -144,7 +144,11 @@ export function tasksToSvar(
       .filter(Boolean)
       .join(", ");
 
-    const extra = { startFmt, status: t.status, assigned: owner, dept, predecessorNames: predNames };
+    const extra = {
+      startFmt, status: t.status, assigned: owner, dept, predecessorNames: predNames,
+      endFmt: t.end ? fmtDisplay(t.end) : "",
+      css: t.status.toLowerCase() === "done" ? "task-done" : "",
+    };
 
     if (t.start && t.end && t.start !== t.end) {
       raw.push({

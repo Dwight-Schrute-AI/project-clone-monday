@@ -130,14 +130,7 @@ export default function App(): React.JSX.Element {
 
   // ─── SVAR grid columns ──────
   const ganttColumns = useMemo(() => [
-    { id: "text", header: "Task Name", flexgrow: 1, width: 300, editor: "text" as const,
-      // Strikethrough for Done tasks
-      template: (_v: unknown, row: Record<string, unknown>) => {
-        const name = String(row["text"] ?? "");
-        const isDone = String(row["status"] ?? "").toLowerCase() === "done";
-        return isDone ? `<span style="text-decoration:line-through;opacity:0.6">${name}</span>` : name;
-      },
-    },
+    { id: "text", header: "Task Name", flexgrow: 1, width: 300, editor: "text" as const },
     { id: "assigned", header: "Owner", width: 160,
       getter: (obj: Record<string, unknown>) => String(obj["assigned"] ?? ""),
       editor: { type: "richselect" as const, config: { options: colOptions.ownerOptions } },
@@ -148,11 +141,11 @@ export default function App(): React.JSX.Element {
       editor: { type: "richselect" as const, config: { options: colOptions.statusOptions } },
       options: colOptions.statusOptions,
     },
-    { id: "start", header: "Start", width: 120, editor: "datepicker" as const,
-      template: (_v: unknown, row: Record<string, unknown>) => fmtDateCell(row["start"] as Date),
+    { id: "startFmt", header: "Start", width: 120,
+      getter: (obj: Record<string, unknown>) => String(obj["startFmt"] ?? ""),
     },
-    { id: "end", header: "End", width: 120, editor: "datepicker" as const,
-      template: (_v: unknown, row: Record<string, unknown>) => fmtDateCell(row["end"] as Date),
+    { id: "endFmt", header: "End", width: 120,
+      getter: (obj: Record<string, unknown>) => String(obj["endFmt"] ?? ""),
     },
     { id: "duration", header: "Days", width: 60, align: "center" as const, editor: "text" as const },
     { id: "dept", header: "Department", width: 150,

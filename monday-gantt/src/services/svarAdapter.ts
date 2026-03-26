@@ -199,3 +199,45 @@ export function svarChangeToApp(
 function fmtIso(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
+
+/** Build option lists for dropdowns from monday.com data */
+export function buildColumnOptions(
+  appTasks: Task[],
+  appColumns: Column[],
+  userDir: Map<string, { id: string; name: string; email: string }>,
+): {
+  statusOptions: Array<{ id: string; label: string }>;
+  ownerOptions: Array<{ id: string; label: string }>;
+  deptOptions: Array<{ id: string; label: string }>;
+} {
+  // Status options from column definition or actual data
+  const statusCol = appColumns.find((c) => c.mondayColType === "status");
+  let statusOptions = (statusCol?.options ?? []).map((o) => ({ id: o.label, label: o.label }));
+  if (statusOptions.length === 0) {
+    const labels = new Set<string>();
+    for (const t of appTasks) {
+      if (t.status && !t.isGroupRow) labels.add(t.status);
+    }
+    statusOptions = Array.from(labels).sort().map((s) => ({ id: s, label: s }));
+  }
+
+  // Owner options from user directory
+  const ownerOptions = Array.from(userDir.values())
+    .map((u) => ({ id: u.name, label: u.name }))
+    .sort((a, b) => a.label.localeCompare(b.label));
+
+  // Department options from task extras
+  const deptCol = appColumns.find((c) => /\bdepartment\b/i.test(c.label));
+  const deptKey = deptCol?.key;
+  const deptSet = new Set<string>();
+  if (deptKey) {
+    for (const t of appTasks) {
+      if (t.isGroupRow) continue;
+      const v = t.extras[deptKey];
+      if (typeof v === "string" && v) deptSet.add(v);
+    }
+  }
+  const deptOptions = Array.from(deptSet).sort().map((d) => ({ id: d, label: d }));
+
+  return { statusOptions, ownerOptions, deptOptions };
+}

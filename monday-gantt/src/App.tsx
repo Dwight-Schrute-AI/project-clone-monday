@@ -6,7 +6,7 @@ import { Gantt, Toolbar, Editor, WillowDark } from "@svar-ui/react-gantt";
 import "@svar-ui/react-gantt/all.css";
 import { testConnection, fetchBoards, fetchBoardData, fetchUsers, updateItem, updateItemName } from "./services/mondayApi";
 import { mapBoardToTasks, mapFieldToMondayValue } from "./services/dataMapper";
-import { tasksToSvar, svarChangeToApp, resetIdMap } from "./services/svarAdapter";
+import { tasksToSvar, svarChangeToApp, resetIdMap, buildColumnOptions } from "./services/svarAdapter";
 import type { Task, Column } from "./types";
 
 // ─── SVAR Config ─────────────────────────────────────────────────
@@ -14,20 +14,6 @@ import type { Task, Column } from "./types";
 const SCALES_WEEK = [
   { unit: "month" as const, step: 1, format: "%F %Y" },
   { unit: "week" as const, step: 1, format: "Week %W" },
-];
-
-// Grid columns — use getter to extract custom fields from SVAR's data hash
-const GANTT_COLUMNS = [
-  { id: "text", header: "Task Name", flexgrow: 1, width: 280, editor: "text" as const },
-  { id: "assigned", header: "Owner", width: 130, editor: "text" as const,
-    getter: (obj: Record<string, unknown>) => String(obj["assigned"] ?? "") },
-  { id: "status", header: "Status", width: 110,
-    getter: (obj: Record<string, unknown>) => String(obj["status"] ?? "") },
-  { id: "startFmt", header: "Start", width: 110,
-    getter: (obj: Record<string, unknown>) => String(obj["startFmt"] ?? "") },
-  { id: "duration", header: "Days", width: 55, align: "center" as const, editor: "text" as const },
-  { id: "dept", header: "Dept", width: 110,
-    getter: (obj: Record<string, unknown>) => String(obj["dept"] ?? "") },
 ];
 
 // ─── Styles ──────────────────────────────────────────────────────
@@ -123,11 +109,55 @@ export default function App(): React.JSX.Element {
     }
   }
 
-  // ─── SVAR data — pass userDir and columns for extra column resolution ──────
+  // ─── SVAR data ──────
   const { tasks: svarTasks, links: svarLinks } = useMemo(
     () => tasksToSvar(tasks, userDir, columns),
     [tasks, userDir, columns],
   );
+
+  // ─── Dynamic column options from monday.com data ──────
+  const colOptions = useMemo(
+    () => buildColumnOptions(tasks, columns, userDir),
+    [tasks, columns, userDir],
+  );
+
+  // ─── SVAR grid columns with proper editors ──────
+  const ganttColumns = useMemo(() => [
+    { id: "text", header: "Task Name", flexgrow: 1, width: 280, editor: "text" as const },
+    { id: "assigned", header: "Owner", width: 140,
+      getter: (obj: Record<string, unknown>) => String(obj["assigned"] ?? ""),
+      editor: { type: "richselect" as const, config: { options: colOptions.ownerOptions } },
+      options: colOptions.ownerOptions,
+    },
+    { id: "status", header: "Status", width: 110,
+      getter: (obj: Record<string, unknown>) => String(obj["status"] ?? ""),
+      editor: { type: "richselect" as const, config: { options: colOptions.statusOptions } },
+      options: colOptions.statusOptions,
+    },
+    { id: "start", header: "Start", width: 110, editor: "datepicker" as const },
+    { id: "end", header: "End", width: 110, editor: "datepicker" as const },
+    { id: "duration", header: "Days", width: 55, align: "center" as const, editor: "text" as const },
+    { id: "dept", header: "Dept", width: 120,
+      getter: (obj: Record<string, unknown>) => String(obj["dept"] ?? ""),
+      editor: { type: "richselect" as const, config: { options: colOptions.deptOptions } },
+      options: colOptions.deptOptions,
+    },
+  ], [colOptions]);
+
+  // ─── SVAR editor dialog items ──────
+  const editorItems = useMemo(() => [
+    { key: "text", label: "Name", comp: "text" },
+    { key: "assigned", label: "Owner", comp: "select", options: colOptions.ownerOptions },
+    { key: "status", label: "Status", comp: "select", options: colOptions.statusOptions },
+    { key: "type", label: "Type", comp: "select", options: [
+      { id: "task", label: "Task" }, { id: "milestone", label: "Milestone" },
+    ]},
+    { key: "start", label: "Start date", comp: "datepicker" },
+    { key: "end", label: "End date", comp: "datepicker" },
+    { key: "duration", label: "Duration", comp: "counter" },
+    { key: "progress", label: "Progress", comp: "slider" },
+    { key: "details", label: "Description", comp: "textarea" },
+  ], [colOptions]);
 
   // ─── SVAR init — wire up event handlers ─────
   const tokenRef = useRef(token);
@@ -270,25 +300,13 @@ export default function App(): React.JSX.Element {
               tasks={svarTasks}
               links={svarLinks}
               scales={SCALES_WEEK}
-              columns={GANTT_COLUMNS}
+              columns={ganttColumns}
               cellHeight={36}
               cellWidth={100}
               zoom
               init={handleInit}
             />
-            {api && <Editor api={api} items={[
-              { key: "text", label: "Name", comp: "text" },
-              { key: "assigned", label: "Owner", comp: "text" },
-              { key: "status", label: "Status", comp: "text" },
-              { key: "type", label: "Type", comp: "select", options: [
-                { id: "task", label: "Task" }, { id: "milestone", label: "Milestone" },
-              ]},
-              { key: "start", label: "Start date", comp: "datepicker" },
-              { key: "end", label: "End date", comp: "datepicker" },
-              { key: "duration", label: "Duration", comp: "counter" },
-              { key: "progress", label: "Progress", comp: "slider" },
-              { key: "details", label: "Description", comp: "textarea" },
-            ]} />}
+            {api && <Editor api={api} items={editorItems} />}
           </GanttErrorBoundary>
         </div>
       </div>

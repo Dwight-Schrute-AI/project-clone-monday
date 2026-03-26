@@ -150,19 +150,27 @@ export function tasksToSvar(
       css: t.status.toLowerCase() === "done" ? "task-done" : "",
     };
 
+    // Baseline fields — initially set to the task's own dates.
+    // When a task is rescheduled, the baseline stays as the original plan.
+    const baselineFields = t.start && t.end ? {
+      base_start: toDate(t.start),
+      base_end: toDate(t.end),
+      base_duration: diffDays(t.start, t.end),
+    } : {};
+
     if (t.start && t.end && t.start !== t.end) {
       raw.push({
         id, text: t.name,
         start: toDate(t.start), end: toDate(t.end),
         duration: diffDays(t.start, t.end),
-        progress: t.pct, parent, type: "task", ...extra,
+        progress: t.pct, parent, type: "task", ...extra, ...baselineFields,
       });
     } else {
       const d = (t.start ?? t.end)!;
       raw.push({
         id, text: t.name,
         start: toDate(d), end: toDate(d),
-        duration: 0, progress: t.pct, parent, type: "milestone", ...extra,
+        duration: 0, progress: t.pct, parent, type: "milestone", ...extra, ...baselineFields,
       });
     }
     emittedIds.add(id);

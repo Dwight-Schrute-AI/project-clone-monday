@@ -1,5 +1,16 @@
 /* monday-gantt global overrides */
 
+/* ── Marker styles for Gantt timeline ── */
+.marker-today {
+  background-color: rgba(228, 66, 88, 0.8) !important;
+}
+.marker-start {
+  background-color: rgba(0, 115, 234, 0.6) !important;
+}
+.marker-end {
+  background-color: rgba(0, 200, 117, 0.6) !important;
+}
+
 /* ── Strikethrough for Done tasks ── */
 /* SVAR adds the task's css value as a class on the .wx-row element */
 .task-done .wx-cell {

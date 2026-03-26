@@ -133,6 +133,23 @@ export default function App(): React.JSX.Element {
     [tasks, userDir, columns],
   );
 
+  // ─── Markers: project start, today, project end ──────
+  const markers = useMemo(() => {
+    let min: Date | null = null;
+    let max: Date | null = null;
+    for (const t of svarTasks) {
+      const s = t["start"] as Date | undefined;
+      const e = t["end"] as Date | undefined;
+      if (s instanceof Date && (!min || s.getTime() < min.getTime())) min = s;
+      if (e instanceof Date && (!max || e.getTime() > max.getTime())) max = e;
+    }
+    const result: Array<{ start: Date; text: string; css?: string }> = [];
+    if (min) result.push({ start: min, text: "Project Start", css: "marker-start" });
+    result.push({ start: new Date(), text: "Today", css: "marker-today" });
+    if (max) result.push({ start: max, text: "Project End", css: "marker-end" });
+    return result;
+  }, [svarTasks]);
+
   // ─── Dynamic column options from monday.com data ──────
   const colOptions = useMemo(
     () => buildColumnOptions(tasks, columns, userDir),
@@ -176,6 +193,9 @@ export default function App(): React.JSX.Element {
     { key: "duration", label: "Duration", comp: "counter" },
     { key: "predecessorNames", label: "Predecessors", comp: "text" },
     { key: "progress", label: "Progress", comp: "slider" },
+    { key: "base_start", label: "Baseline start", comp: "datepicker" },
+    { key: "base_end", label: "Baseline end", comp: "datepicker" },
+    { key: "base_duration", label: "Baseline duration", comp: "counter", hidden: true },
     { key: "details", label: "Description", comp: "textarea" },
   ], [colOptions]);
 
@@ -321,7 +341,9 @@ export default function App(): React.JSX.Element {
               links={svarLinks}
               scales={SCALES_WEEK}
               columns={ganttColumns}
-              cellHeight={36}
+              markers={markers}
+              baselines
+              cellHeight={46}
               cellWidth={100}
               zoom
               init={handleInit}

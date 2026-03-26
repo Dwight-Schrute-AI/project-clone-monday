@@ -123,24 +123,27 @@ export default function App(): React.JSX.Element {
 
   // ─── SVAR grid columns with proper editors ──────
   const ganttColumns = useMemo(() => [
-    { id: "text", header: "Task Name", flexgrow: 1, width: 280, editor: "text" as const },
-    { id: "assigned", header: "Owner", width: 140,
+    { id: "text", header: "Task Name", flexgrow: 1, width: 300, editor: "text" as const },
+    { id: "assigned", header: "Owner", width: 160,
       getter: (obj: Record<string, unknown>) => String(obj["assigned"] ?? ""),
       editor: { type: "richselect" as const, config: { options: colOptions.ownerOptions } },
       options: colOptions.ownerOptions,
     },
-    { id: "status", header: "Status", width: 110,
+    { id: "status", header: "Status", width: 130,
       getter: (obj: Record<string, unknown>) => String(obj["status"] ?? ""),
       editor: { type: "richselect" as const, config: { options: colOptions.statusOptions } },
       options: colOptions.statusOptions,
     },
-    { id: "start", header: "Start", width: 110, editor: "datepicker" as const },
-    { id: "end", header: "End", width: 110, editor: "datepicker" as const },
-    { id: "duration", header: "Days", width: 55, align: "center" as const, editor: "text" as const },
-    { id: "dept", header: "Dept", width: 120,
+    { id: "start", header: "Start", width: 120, editor: "datepicker" as const },
+    { id: "end", header: "End", width: 120, editor: "datepicker" as const },
+    { id: "duration", header: "Days", width: 60, align: "center" as const, editor: "text" as const },
+    { id: "dept", header: "Department", width: 150,
       getter: (obj: Record<string, unknown>) => String(obj["dept"] ?? ""),
       editor: { type: "richselect" as const, config: { options: colOptions.deptOptions } },
       options: colOptions.deptOptions,
+    },
+    { id: "predecessorNames", header: "Predecessors", width: 180,
+      getter: (obj: Record<string, unknown>) => String(obj["predecessorNames"] ?? ""),
     },
   ], [colOptions]);
 
@@ -149,6 +152,7 @@ export default function App(): React.JSX.Element {
     { key: "text", label: "Name", comp: "text" },
     { key: "assigned", label: "Owner", comp: "select", options: colOptions.ownerOptions },
     { key: "status", label: "Status", comp: "select", options: colOptions.statusOptions },
+    { key: "dept", label: "Department", comp: "select", options: colOptions.deptOptions },
     { key: "type", label: "Type", comp: "select", options: [
       { id: "task", label: "Task" }, { id: "milestone", label: "Milestone" },
     ]},

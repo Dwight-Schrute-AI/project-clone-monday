@@ -135,21 +135,30 @@ export function tasksToSvar(
     const owner = resolveOwner(t.personIds);
     const startFmt = t.start ? fmtDisplay(t.start) : "";
 
+    // Resolve predecessor display names
+    const predNames = t.predecessors
+      .map((pid) => {
+        const pt = appTasks.find((x) => x.id === pid);
+        return pt ? pt.name.substring(0, 30) : "";
+      })
+      .filter(Boolean)
+      .join(", ");
+
+    const extra = { startFmt, status: t.status, assigned: owner, dept, predecessorNames: predNames };
+
     if (t.start && t.end && t.start !== t.end) {
       raw.push({
         id, text: t.name,
         start: toDate(t.start), end: toDate(t.end),
         duration: diffDays(t.start, t.end),
-        progress: t.pct, parent, type: "task",
-        startFmt: startFmt, status: t.status, assigned: owner, dept: dept,
+        progress: t.pct, parent, type: "task", ...extra,
       });
     } else {
       const d = (t.start ?? t.end)!;
       raw.push({
         id, text: t.name,
         start: toDate(d), end: toDate(d),
-        duration: 0, progress: t.pct, parent, type: "milestone",
-        startFmt: fmtDisplay(d), status: t.status, assigned: owner, dept: dept,
+        duration: 0, progress: t.pct, parent, type: "milestone", ...extra,
       });
     }
     emittedIds.add(id);
@@ -209,6 +218,7 @@ export function buildColumnOptions(
   statusOptions: Array<{ id: string; label: string }>;
   ownerOptions: Array<{ id: string; label: string }>;
   deptOptions: Array<{ id: string; label: string }>;
+  predOptions: Array<{ id: string; label: string }>;
 } {
   // Status options from column definition or actual data
   const statusCol = appColumns.find((c) => c.mondayColType === "status");
@@ -239,5 +249,10 @@ export function buildColumnOptions(
   }
   const deptOptions = Array.from(deptSet).sort().map((d) => ({ id: d, label: d }));
 
-  return { statusOptions, ownerOptions, deptOptions };
+  // Predecessor options — all non-group tasks with dates
+  const predOptions = appTasks
+    .filter((t) => !t.isGroupRow && (t.start || t.end))
+    .map((t) => ({ id: String(numId(t.id)), label: t.name.substring(0, 50) }));
+
+  return { statusOptions, ownerOptions, deptOptions, predOptions };
 }

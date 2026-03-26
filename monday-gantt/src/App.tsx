@@ -16,18 +16,18 @@ const SCALES_WEEK = [
   { unit: "week" as const, step: 1, format: "Week %W" },
 ];
 
-// Grid columns — use template for custom fields from our adapter
+// Grid columns — use getter to extract custom fields from SVAR's data hash
 const GANTT_COLUMNS = [
   { id: "text", header: "Task Name", flexgrow: 1, width: 280, editor: "text" as const },
-  { id: "_owner", header: "Owner", width: 120,
-    template: (t: Record<string, unknown>) => (t["_owner"] as string) || "" },
-  { id: "_status", header: "Status", width: 100,
-    template: (t: Record<string, unknown>) => (t["_status"] as string) || "" },
-  { id: "_startFmt", header: "Start", width: 110,
-    template: (t: Record<string, unknown>) => (t["_startFmt"] as string) || "" },
+  { id: "assigned", header: "Owner", width: 130, editor: "text" as const,
+    getter: (obj: Record<string, unknown>) => String(obj["assigned"] ?? "") },
+  { id: "status", header: "Status", width: 110,
+    getter: (obj: Record<string, unknown>) => String(obj["status"] ?? "") },
+  { id: "startFmt", header: "Start", width: 110,
+    getter: (obj: Record<string, unknown>) => String(obj["startFmt"] ?? "") },
   { id: "duration", header: "Days", width: 55, align: "center" as const, editor: "text" as const },
-  { id: "_dept", header: "Dept", width: 100,
-    template: (t: Record<string, unknown>) => (t["_dept"] as string) || "" },
+  { id: "dept", header: "Dept", width: 110,
+    getter: (obj: Record<string, unknown>) => String(obj["dept"] ?? "") },
 ];
 
 // ─── Styles ──────────────────────────────────────────────────────
@@ -276,7 +276,19 @@ export default function App(): React.JSX.Element {
               zoom
               init={handleInit}
             />
-            {api && <Editor api={api} />}
+            {api && <Editor api={api} items={[
+              { key: "text", label: "Name", comp: "text" },
+              { key: "assigned", label: "Owner", comp: "text" },
+              { key: "status", label: "Status", comp: "text" },
+              { key: "type", label: "Type", comp: "select", options: [
+                { id: "task", label: "Task" }, { id: "milestone", label: "Milestone" },
+              ]},
+              { key: "start", label: "Start date", comp: "datepicker" },
+              { key: "end", label: "End date", comp: "datepicker" },
+              { key: "duration", label: "Duration", comp: "counter" },
+              { key: "progress", label: "Progress", comp: "slider" },
+              { key: "details", label: "Description", comp: "textarea" },
+            ]} />}
           </GanttErrorBoundary>
         </div>
       </div>

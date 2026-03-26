@@ -114,8 +114,8 @@ export function tasksToSvar(
         start: toDate(range.min), end: toDate(range.max),
         duration: diffDays(range.min, range.max),
         progress: 0, parent: 0, type: "task", open: true,
-        _startFmt: fmtDisplay(range.min),
-        _status: "", _owner: "", _dept: "",
+        startFmt: fmtDisplay(range.min),
+        status: "", assigned: "", dept: "",
       });
       emittedIds.add(id);
       curParentNum = 0;
@@ -141,7 +141,7 @@ export function tasksToSvar(
         start: toDate(t.start), end: toDate(t.end),
         duration: diffDays(t.start, t.end),
         progress: t.pct, parent, type: "task",
-        _startFmt: startFmt, _status: t.status, _owner: owner, _dept: dept,
+        startFmt: startFmt, status: t.status, assigned: owner, dept: dept,
       });
     } else {
       const d = (t.start ?? t.end)!;
@@ -149,7 +149,7 @@ export function tasksToSvar(
         id, text: t.name,
         start: toDate(d), end: toDate(d),
         duration: 0, progress: t.pct, parent, type: "milestone",
-        _startFmt: fmtDisplay(d), _status: t.status, _owner: owner, _dept: dept,
+        startFmt: fmtDisplay(d), status: t.status, assigned: owner, dept: dept,
       });
     }
     emittedIds.add(id);

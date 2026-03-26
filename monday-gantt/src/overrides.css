@@ -1,46 +1,34 @@
 /* monday-gantt global overrides */
 
-/* Strikethrough for completed tasks — applied via css:"task-done" on task objects */
-.task-done .wx-cell:first-child {
-  text-decoration: line-through;
-  opacity: 0.5;
-}
-/* Also style the gantt bar for done tasks */
-.task-done .wx-bar {
-  opacity: 0.4;
+/* ── Strikethrough for Done tasks ── */
+/* SVAR adds the task's css value as a class on the .wx-row element */
+.task-done .wx-cell {
+  text-decoration: line-through !important;
+  opacity: 0.5 !important;
 }
 
-/* Ensure scrollbars are always visible in the grid pane */
-.wx-table-container {
-  overflow: auto !important;
-  scrollbar-width: thin;
-  scrollbar-color: rgba(255, 255, 255, 0.25) transparent;
+/* ── Scrollbar always visible on cell pane ── */
+/* SVAR wraps the grid table in .wx-scroll and .wx-table-container */
+.wx-scroll,
+.wx-table-container,
+[class*="wx-"][style*="overflow"] {
+  scrollbar-width: thin !important;
+  scrollbar-color: rgba(255, 255, 255, 0.3) transparent !important;
 }
-.wx-table-container::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+.wx-scroll::-webkit-scrollbar,
+.wx-table-container::-webkit-scrollbar,
+[class*="wx-"][style*="overflow"]::-webkit-scrollbar {
+  width: 10px !important;
+  height: 10px !important;
 }
-.wx-table-container::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.25);
-  border-radius: 4px;
+.wx-scroll::-webkit-scrollbar-thumb,
+.wx-table-container::-webkit-scrollbar-thumb,
+[class*="wx-"][style*="overflow"]::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.3) !important;
+  border-radius: 5px !important;
 }
-.wx-table-container::-webkit-scrollbar-track {
-  background: rgba(0, 0, 0, 0.1);
-}
-
-/* Also ensure gantt chart scroll area has visible scrollbar */
-.wx-scroll {
-  scrollbar-width: thin;
-  scrollbar-color: rgba(255, 255, 255, 0.25) transparent;
-}
-.wx-scroll::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
-}
-.wx-scroll::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.25);
-  border-radius: 4px;
-}
-.wx-scroll::-webkit-scrollbar-track {
-  background: rgba(0, 0, 0, 0.1);
+.wx-scroll::-webkit-scrollbar-track,
+.wx-table-container::-webkit-scrollbar-track,
+[class*="wx-"][style*="overflow"]::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.15) !important;
 }

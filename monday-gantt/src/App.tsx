@@ -1,7 +1,7 @@
 /** @module App — monday.com → SVAR Gantt */
 
 import { useState, useMemo, useCallback, useEffect, useRef, Component } from "react";
-import type { ReactNode, ErrorInfo } from "react";
+import type { ReactNode, ErrorInfo, FC } from "react";
 import { Gantt, Toolbar, Editor, WillowDark } from "@svar-ui/react-gantt";
 import "@svar-ui/react-gantt/all.css";
 import "./overrides.css";
@@ -22,6 +22,17 @@ function fmtDateCell(d: Date | null | undefined): string {
   if (!d || !(d instanceof Date) || isNaN(d.getTime())) return "";
   return `${String(d.getDate()).padStart(2, "0")}-${MONTHS[d.getMonth()]}-${d.getFullYear()}`;
 }
+
+// Custom cell component for Task Name — shows strikethrough when Done
+const TaskNameCell: FC<{ row: Record<string, unknown> }> = ({ row }) => {
+  const name = String(row["text"] ?? "");
+  const isDone = String(row["status"] ?? "").toLowerCase() === "done";
+  return (
+    <span style={isDone ? { textDecoration: "line-through", opacity: 0.5 } : undefined}>
+      {name}
+    </span>
+  );
+};
 
 // ─── Styles ──────────────────────────────────────────────────────
 
@@ -130,32 +141,25 @@ export default function App(): React.JSX.Element {
 
   // ─── SVAR grid columns ──────
   const ganttColumns = useMemo(() => [
-    { id: "text", header: "Task Name", flexgrow: 1, width: 250, editor: "text" as const },
-    { id: "assigned", header: "Owner", width: 140,
+    { id: "text", header: "Task Name", width: 280, editor: "text" as const,
+      cell: TaskNameCell },
+    { id: "assigned", header: "Owner", width: 130,
       getter: (obj: Record<string, unknown>) => String(obj["assigned"] ?? ""),
       editor: { type: "richselect" as const, config: { options: colOptions.ownerOptions } },
       options: colOptions.ownerOptions,
     },
-    { id: "status", header: "Status", width: 110,
+    { id: "status", header: "Status", width: 100,
       getter: (obj: Record<string, unknown>) => String(obj["status"] ?? ""),
       editor: { type: "richselect" as const, config: { options: colOptions.statusOptions } },
       options: colOptions.statusOptions,
     },
-    { id: "startFmt", header: "Start", width: 105,
-      getter: (obj: Record<string, unknown>) => String(obj["startFmt"] ?? ""),
+    { id: "start", header: "Start", width: 100, editor: "datepicker" as const,
+      template: (_v: unknown, row: Record<string, unknown>) => fmtDateCell(row["start"] as Date),
     },
-    { id: "endFmt", header: "End", width: 105,
-      getter: (obj: Record<string, unknown>) => String(obj["endFmt"] ?? ""),
+    { id: "end", header: "End", width: 100, editor: "datepicker" as const,
+      template: (_v: unknown, row: Record<string, unknown>) => fmtDateCell(row["end"] as Date),
     },
-    { id: "duration", header: "Days", width: 50, align: "center" as const, editor: "text" as const },
-    { id: "dept", header: "Dept", width: 110,
-      getter: (obj: Record<string, unknown>) => String(obj["dept"] ?? ""),
-      editor: { type: "richselect" as const, config: { options: colOptions.deptOptions } },
-      options: colOptions.deptOptions,
-    },
-    { id: "predecessorNames", header: "Predecessors", width: 150,
-      getter: (obj: Record<string, unknown>) => String(obj["predecessorNames"] ?? ""),
-    },
+    { id: "duration", header: "Days", width: 45, align: "center" as const, editor: "text" as const },
   ], [colOptions]);
 
   // ─── SVAR editor dialog items ──────

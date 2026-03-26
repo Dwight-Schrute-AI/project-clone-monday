@@ -1,0 +1,24 @@
+/* monday-gantt global overrides */
+
+/* Ensure scrollbar is always visible in grid area */
+.wx-grid-body::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+.wx-grid-body::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+}
+.wx-grid-body::-webkit-scrollbar-track {
+  background: transparent;
+}
+.wx-grid-body {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+}
+
+/* Also fix the main gantt scroll areas */
+[class*="wx-"] {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+}
